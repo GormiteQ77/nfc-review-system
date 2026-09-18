@@ -31,6 +31,8 @@ import { TEMPLATE_OPTIONS, type TemplateId } from '../r/[slug]/themes';
 const ACCENT = '#D4A15E';
 const DAY_LABELS = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 
+type Plan = 'direct' | 'redirect_all' | 'full';
+
 interface Company {
   id: string;
   name: string;
@@ -40,6 +42,8 @@ interface Company {
   is_active: boolean;
   template: TemplateId;
   accent_color: string | null;
+  plan: Plan;
+  subscription_expires_at: string | null;
   created_at: string;
 }
 
@@ -61,7 +65,7 @@ interface Rating {
   created_at: string;
 }
 
-type Tab = 'overview' | 'clients' | 'feedback' | 'settings';
+type Tab = 'overview' | 'clients' | 'settings';
 
 interface Toast {
   id: number;
@@ -71,9 +75,32 @@ interface Toast {
 const NAV_ITEMS: { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'overview', label: 'Przegląd', icon: LayoutGrid },
   { id: 'clients', label: 'Klienci', icon: Users },
-  { id: 'feedback', label: 'Opinie', icon: MessageSquare },
   { id: 'settings', label: 'Ustawienia', icon: SettingsIcon },
 ];
+
+const PLAN_OPTIONS: { id: Plan; label: string; hint: string }[] = [
+  { id: 'direct', label: 'Sama karta (link do Google)', hint: 'Bez własnej strony — karta NFC prowadzi wprost do Google' },
+  { id: 'redirect_all', label: 'Custom — wszystkie oceny → Google', hint: 'Własna strona, ale każda ocena przenosi do Google' },
+  { id: 'full', label: 'Custom — pełny formularz opinii', hint: '4-5★ → Google, 1-3★ → prywatny feedback w panelu' },
+];
+
+function getSubscriptionStatus(expiresAt: string | null) {
+  if (!expiresAt) {
+    return { label: 'Brak subskrypcji', color: '#E28A6B', bg: 'rgba(226,138,107,0.15)' };
+  }
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label: 'Wygasła', color: '#E28A6B', bg: 'rgba(226,138,107,0.15)' };
+  if (days <= 7) return { label: `Wygasa za ${days} dni`, color: '#E2B25E', bg: 'rgba(226,178,94,0.15)' };
+  return { label: 'Aktywna', color: '#5FBE8A', bg: 'rgba(95,190,138,0.14)' };
+}
+
+function addInterval(base: string, unit: 'month' | 'year') {
+  const start = base ? new Date(base) : new Date();
+  const from = start.getTime() >= Date.now() ? start : new Date();
+  if (unit === 'month') from.setMonth(from.getMonth() + 1);
+  else from.setFullYear(from.getFullYear() + 1);
+  return from.toISOString().slice(0, 10);
+}
 
 function isSameDay(iso: string, date: Date) {
   return iso.slice(0, 10) === date.toISOString().slice(0, 10);
@@ -117,6 +144,8 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     ownerEmail: '',
     template: 'universal' as TemplateId,
     accentColor: ACCENT,
+    plan: 'full' as Plan,
+    subscriptionExpiresAt: '',
   });
 
   const pushToast = (message: string) => {
@@ -197,7 +226,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
   const openAddModal = () => {
     setEditingCompany(null);
-    setForm({ name: '', slug: '', googleUrl: '', ownerEmail: '', template: 'universal', accentColor: ACCENT });
+    setForm({
+      name: '',
+      slug: '',
+      googleUrl: '',
+      ownerEmail: '',
+      template: 'universal',
+      accentColor: ACCENT,
+      plan: 'full',
+      subscriptionExpiresAt: '',
+    });
     setModalOpen(true);
   };
 
@@ -210,6 +248,8 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       ownerEmail: company.owner_email,
       template: company.template ?? 'universal',
       accentColor: company.accent_color ?? ACCENT,
+      plan: company.plan ?? 'full',
+      subscriptionExpiresAt: company.subscription_expires_at ?? '',
     });
     setModalOpen(true);
   };
@@ -217,12 +257,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const planFields = {
+      template: form.template,
+      accent_color: form.accentColor,
+      plan: form.plan,
+      subscription_expires_at: form.subscriptionExpiresAt || null,
+    };
+
     if (editingCompany) {
-      await supabase
-        .from('companies')
-        .update({ template: form.template, accent_color: form.accentColor })
-        .eq('id', editingCompany.id);
-      pushToast(`Zaktualizowano szablon: ${editingCompany.name}`);
+      await supabase.from('companies').update(planFields).eq('id', editingCompany.id);
+      pushToast(`Zaktualizowano: ${editingCompany.name}`);
     } else {
       const cleanSlug = form.slug.toLowerCase().trim().replace(/\s+/g, '-');
       await supabase.from('companies').insert([
@@ -231,9 +275,8 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
           slug: cleanSlug,
           google_review_url: form.googleUrl,
           owner_email: form.ownerEmail,
-          template: form.template,
-          accent_color: form.accentColor,
           is_active: true,
+          ...planFields,
         },
       ]);
       pushToast(`Dodano klienta: ${form.name}`);
@@ -417,9 +460,13 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             {/* Mobile: stacked cards */}
             <div className="flex flex-col gap-3 md:hidden">
               {filteredCompanies.map((c) => {
-                const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
+                const sub = getSubscriptionStatus(c.subscription_expires_at);
                 return (
-                  <div key={c.id} className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-4">
+                  <button
+                    key={c.id}
+                    onClick={() => openEditModal(c)}
+                    className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-4 text-left"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
@@ -427,20 +474,24 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-medium text-[#E9E7E1]">{c.name}</p>
-                          <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1 text-[11px] text-[#8FA6C9]">
+                          <span className="flex items-center gap-1 text-[11px] text-[#8FA6C9]">
                             <LinkIcon size={10} />/r/{c.slug}
-                          </a>
+                          </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleStatus(c.id, c.is_active)}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(c.id, c.is_active);
+                        }}
+                        role="button"
                         aria-label="Przełącz status"
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-[#2A2A31]"
                       >
                         <Power size={13} color="#8B8A90" />
-                      </button>
+                      </span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
                       <span
                         className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
                         style={{
@@ -450,15 +501,14 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                       >
                         {c.is_active ? 'Aktywny' : 'Zablokowany'}
                       </span>
-                      <button
-                        onClick={() => openEditModal(c)}
-                        className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
+                      <span
+                        className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                        style={{ background: sub.bg, color: sub.color }}
                       >
-                        <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
-                        <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
-                      </button>
+                        {sub.label}
+                      </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
               {filteredCompanies.length === 0 && (
@@ -468,26 +518,32 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
             {/* Desktop: table */}
             <div className="hidden overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] md:block">
-              <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
+              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
                 <span>Firma</span>
                 <span>Link NFC</span>
                 <span>Status</span>
+                <span>Subskrypcja</span>
                 <span>Szablon strony</span>
                 <span>Akcja</span>
               </div>
               {filteredCompanies.map((c) => {
                 const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
+                const sub = getSubscriptionStatus(c.subscription_expires_at);
                 return (
-                  <div key={c.id} className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5">
+                  <div
+                    key={c.id}
+                    onClick={() => openEditModal(c)}
+                    className="grid cursor-pointer grid-cols-[1.6fr_1fr_0.8fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5 hover:bg-[#202024]"
+                  >
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
                         {c.name.charAt(0)}
                       </div>
                       <span className="text-[12.5px] font-medium text-[#E9E7E1]">{c.name}</span>
                     </div>
-                    <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1.5 text-xs text-[#8FA6C9]">
+                    <span className="flex items-center gap-1.5 text-xs text-[#8FA6C9]">
                       <LinkIcon size={12} />/r/{c.slug}
-                    </a>
+                    </span>
                     <span
                       className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
                       style={{
@@ -497,15 +553,21 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                     >
                       {c.is_active ? 'Aktywny' : 'Zablokowany'}
                     </span>
-                    <button
-                      onClick={() => openEditModal(c)}
-                      className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
+                    <span
+                      className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                      style={{ background: sub.bg, color: sub.color }}
                     >
+                      {sub.label}
+                    </span>
+                    <span className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5">
                       <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
                       <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
-                    </button>
+                    </span>
                     <button
-                      onClick={() => toggleStatus(c.id, c.is_active)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStatus(c.id, c.is_active);
+                      }}
                       aria-label="Przełącz status"
                       className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-[#2A2A31]"
                     >
@@ -519,41 +581,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               )}
             </div>
           </>
-        )}
-
-        {tab === 'feedback' && (
-          <div className="flex flex-col gap-3 overflow-auto">
-            {feedbacks.map((f) => (
-              <div key={f.id} className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[16px_20px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-semibold text-[#E9E7E1]">
-                    {f.companies?.name ?? '—'} · <span style={{ color: '#E28A6B' }}>{f.rating}★</span>
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-[#6F6E76]">{new Date(f.created_at).toLocaleDateString('pl-PL')}</span>
-                    <button
-                      onClick={() => toggleResolved(f.id, f.resolved)}
-                      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold"
-                      style={{
-                        borderColor: f.resolved ? 'rgba(95,190,138,0.4)' : '#2A2A31',
-                        color: f.resolved ? '#5FBE8A' : '#9B9AA1',
-                      }}
-                    >
-                      <CheckCircle2 size={12} />
-                      {f.resolved ? 'Obsłużono' : 'Oznacz jako obsłużone'}
-                    </button>
-                  </div>
-                </div>
-                <p className="mt-2 text-[12.5px] leading-relaxed text-[#B7B5B0]">{f.message}</p>
-                {f.customer_contact && (
-                  <p className="mt-1.5 text-[11.5px]" style={{ color: ACCENT }}>
-                    Kontakt: {f.customer_contact}
-                  </p>
-                )}
-              </div>
-            ))}
-            {feedbacks.length === 0 && <p className="text-sm text-[#6F6E76]">Brak prywatnego feedbacku.</p>}
-          </div>
         )}
 
         {tab === 'settings' && (
@@ -591,7 +618,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             >
               <div className="mb-[18px] flex items-center justify-between">
                 <p className="text-base font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-                  {editingCompany ? `Edytuj szablon: ${editingCompany.name}` : 'Dodaj nowego klienta'}
+                  {editingCompany ? editingCompany.name : 'Dodaj nowego klienta'}
                 </p>
                 <button onClick={() => setModalOpen(false)} aria-label="Zamknij">
                   <X size={16} color="#8B8A90" />
@@ -635,37 +662,102 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                 )}
 
                 <div>
-                  <p className="mb-2 mt-1 text-[11px] text-[#9B9AA1]">Szablon strony opinii (wygląd dla klienta)</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {TEMPLATE_OPTIONS.map((t) => {
-                      const selected = form.template === t.id;
+                  <p className="mb-2 mt-1 text-[11px] text-[#9B9AA1]">Wariant produktu</p>
+                  <div className="flex flex-col gap-1.5">
+                    {PLAN_OPTIONS.map((p) => {
+                      const selected = form.plan === p.id;
                       return (
                         <button
                           type="button"
-                          key={t.id}
-                          onClick={() => setForm({ ...form, template: t.id, accentColor: t.accentDefault })}
-                          className="flex items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left"
+                          key={p.id}
+                          onClick={() => setForm({ ...form, plan: p.id })}
+                          className="rounded-[11px] border px-3 py-2.5 text-left"
                           style={{
                             borderColor: selected ? ACCENT : '#2A2A31',
                             background: selected ? 'rgba(212,161,94,0.1)' : 'transparent',
                           }}
                         >
-                          <span className="h-6 w-6 shrink-0 rounded-[7px] border border-white/15" style={{ background: t.swatch }} />
-                          <span className="text-[11.5px] text-[#E9E7E1]">{t.label}</span>
+                          <p className="text-[12px] font-medium text-[#E9E7E1]">{p.label}</p>
+                          <p className="mt-0.5 text-[10.5px] text-[#9B9AA1]">{p.hint}</p>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-[11px] border border-[#2A2A31] px-3.5 py-2.5">
-                  <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
+                {form.plan !== 'direct' && (
+                  <>
+                    <div>
+                      <p className="mb-2 mt-1 text-[11px] text-[#9B9AA1]">Szablon strony opinii (wygląd dla klienta)</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {TEMPLATE_OPTIONS.map((t) => {
+                          const selected = form.template === t.id;
+                          return (
+                            <button
+                              type="button"
+                              key={t.id}
+                              onClick={() => setForm({ ...form, template: t.id, accentColor: t.accentDefault })}
+                              className="flex items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left"
+                              style={{
+                                borderColor: selected ? ACCENT : '#2A2A31',
+                                background: selected ? 'rgba(212,161,94,0.1)' : 'transparent',
+                              }}
+                            >
+                              <span className="h-6 w-6 shrink-0 rounded-[7px] border border-white/15" style={{ background: t.swatch }} />
+                              <span className="text-[11.5px] text-[#E9E7E1]">{t.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-[11px] border border-[#2A2A31] px-3.5 py-2.5">
+                      <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
+                      <input
+                        type="color"
+                        value={form.accentColor}
+                        onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+                        className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="rounded-[11px] border border-[#2A2A31] p-3.5">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <span className="text-[11px] text-[#9B9AA1]">Subskrypcja ważna do</span>
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        background: getSubscriptionStatus(form.subscriptionExpiresAt || null).bg,
+                        color: getSubscriptionStatus(form.subscriptionExpiresAt || null).color,
+                      }}
+                    >
+                      {getSubscriptionStatus(form.subscriptionExpiresAt || null).label}
+                    </span>
+                  </div>
                   <input
-                    type="color"
-                    value={form.accentColor}
-                    onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-                    className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                    type="date"
+                    value={form.subscriptionExpiresAt}
+                    onChange={(e) => setForm({ ...form, subscriptionExpiresAt: e.target.value })}
+                    className="mb-2 w-full rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12.5px] text-[#E9E7E1] outline-none"
                   />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, subscriptionExpiresAt: addInterval(form.subscriptionExpiresAt, 'month') })}
+                      className="flex-1 rounded-[10px] border border-[#2A2A31] py-1.5 text-[11px] text-[#C9C7C2]"
+                    >
+                      + 1 miesiąc
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, subscriptionExpiresAt: addInterval(form.subscriptionExpiresAt, 'year') })}
+                      className="flex-1 rounded-[10px] border border-[#2A2A31] py-1.5 text-[11px] text-[#C9C7C2]"
+                    >
+                      + 1 rok
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -673,9 +765,53 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                   className="mt-1.5 rounded-xl py-3 text-[13px] font-semibold text-[#1A1305]"
                   style={{ background: ACCENT }}
                 >
-                  {editingCompany ? 'Zapisz szablon' : 'Zapisz klienta i wygeneruj link'}
+                  {editingCompany ? 'Zapisz zmiany' : 'Zapisz klienta i wygeneruj link'}
                 </button>
               </form>
+
+              {editingCompany && editingCompany.plan === 'full' && (
+                <div className="mt-5 border-t border-[#2A2A31] pt-4">
+                  <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#E9E7E1]">
+                    <MessageSquare size={13} />
+                    Prywatny feedback tego klienta
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {feedbacks
+                      .filter((f) => f.company_id === editingCompany.id)
+                      .map((f) => (
+                        <div key={f.id} className="rounded-xl border border-[#2A2A31] p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11.5px] font-semibold text-[#E9E7E1]">{f.rating}★</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10.5px] text-[#6F6E76]">{new Date(f.created_at).toLocaleDateString('pl-PL')}</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleResolved(f.id, f.resolved)}
+                                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                style={{
+                                  borderColor: f.resolved ? 'rgba(95,190,138,0.4)' : '#2A2A31',
+                                  color: f.resolved ? '#5FBE8A' : '#9B9AA1',
+                                }}
+                              >
+                                <CheckCircle2 size={10} />
+                                {f.resolved ? 'Obsłużono' : 'Oznacz'}
+                              </button>
+                            </div>
+                          </div>
+                          <p className="mt-1.5 text-[11.5px] leading-relaxed text-[#B7B5B0]">{f.message}</p>
+                          {f.customer_contact && (
+                            <p className="mt-1 text-[10.5px]" style={{ color: ACCENT }}>
+                              Kontakt: {f.customer_contact}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    {feedbacks.filter((f) => f.company_id === editingCompany.id).length === 0 && (
+                      <p className="text-[11.5px] text-[#6F6E76]">Brak zgłoszeń od tego klienta.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

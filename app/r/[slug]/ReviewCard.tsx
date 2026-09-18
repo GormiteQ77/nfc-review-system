@@ -26,6 +26,7 @@ interface Company {
   website_url?: string | null;
   template?: TemplateId | null;
   accent_color?: string | null;
+  plan?: 'direct' | 'redirect_all' | 'full' | null;
 }
 
 const stepTransition = { duration: 0.22, ease: 'easeOut' as const };
@@ -92,7 +93,7 @@ export default function ReviewCard({ company }: { company: Company }) {
   const templateId: TemplateId = company.template ?? 'universal';
   const theme = THEMES[templateId] ?? THEMES.universal;
   const accent = company.accent_color || theme.accentDefault;
-  const flow = useReviewFlow(company, accent);
+  const flow = useReviewFlow(company, accent, company.plan === 'redirect_all');
 
   const cardBorder = resolveColor(theme.cardBorder, accent);
   const primaryBtnBg = resolveColor(theme.primaryBtnBg, accent);
