@@ -261,10 +261,27 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   };
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#101012]">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#101012] md:flex-row">
       <StarfieldBackground accent={ACCENT} starCount={16} />
 
-      <aside className="relative z-10 flex w-[248px] shrink-0 flex-col border-r border-[#232328] bg-[#16161A] p-[18px_18px_26px]">
+      <div className="relative z-10 flex items-center justify-between border-b border-[#232328] bg-[#16161A] px-4 py-3.5 md:hidden">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px]"
+            style={{ background: `linear-gradient(160deg, ${ACCENT}, #8A6B3A)` }}
+          >
+            <ShieldGlyph />
+          </div>
+          <p className="text-[13.5px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+            NFC Panel
+          </p>
+        </div>
+        <button onClick={handleLogout} aria-label="Wyloguj się" className="p-1 text-[#9B9AA1]">
+          <LogOut size={16} />
+        </button>
+      </div>
+
+      <aside className="relative z-10 hidden w-[248px] shrink-0 flex-col border-r border-[#232328] bg-[#16161A] p-[18px_18px_26px] md:flex">
         <div className="mb-[18px] flex items-center gap-2.5 border-b border-[#232328] px-2.5 pb-6">
           <div
             className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px]"
@@ -320,16 +337,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         </div>
       </aside>
 
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden p-[34px_40px]">
-        <div className="mb-7 flex items-center justify-between">
+      <div className="relative z-10 flex flex-1 flex-col overflow-y-auto p-4 pb-24 md:overflow-hidden md:p-[34px_40px] md:pb-[34px]">
+        <div className="mb-5 flex flex-col gap-3 md:mb-7 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-[22px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+            <h1 className="text-[19px] font-semibold text-[#F5F3EE] md:text-[22px]" style={{ fontFamily: 'var(--font-fraunces)' }}>
               {NAV_ITEMS.find((n) => n.id === tab)?.label}
             </h1>
             <p className="mt-1 text-[12.5px] text-[#6F6E76]">Karty NFC &amp; opinie</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex w-[220px] items-center gap-2 rounded-[11px] border border-[#2A2A31] bg-[#1C1C21] px-3.5 py-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:gap-3">
+            <div className="flex w-full items-center gap-2 rounded-[11px] border border-[#2A2A31] bg-[#1C1C21] px-3.5 py-2.5 sm:w-[220px]">
               <Search size={14} color="#6F6E76" />
               <input
                 value={searchTerm}
@@ -340,7 +357,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             </div>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-1.5 rounded-[11px] px-4 py-2.5 text-[12.5px] font-semibold text-[#1A1305]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[11px] px-4 py-2.5 text-[12.5px] font-semibold text-[#1A1305] sm:w-auto"
               style={{ background: ACCENT }}
             >
               <Plus size={14} strokeWidth={2.4} />
@@ -350,16 +367,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         </div>
 
         {tab === 'overview' && (
-          <div className="flex flex-col gap-[22px] overflow-auto">
-            <div className="grid grid-cols-4 gap-4">
+          <div className="flex flex-col gap-4 overflow-auto md:gap-[22px]">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
               <StatCard label="Aktywne wizytówki" value={String(stats.activeCount)} trend={`↑ ${stats.newCompaniesThisMonth} w tym miesiącu`} trendColor="#5FBE8A" />
               <StatCard label="Średnia ocena" value={stats.avgRating} trend={stats.ratingTrend} trendColor="#5FBE8A" />
               <StatCard label="Opinie w tym miesiącu" value={String(stats.ratingsThisMonth)} trend="Wszystkie oceny 1–5★" trendColor="#5FBE8A" />
               <StatCard label="Wymaga kontaktu" value={String(stats.needsContact)} trend="Oceny 1–3★" trendColor="#E28A6B" />
             </div>
 
-            <div className="grid flex-grow grid-cols-[1.6fr_1fr] gap-4">
-              <div className="flex flex-col rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-[22px_24px]">
+            <div className="grid flex-grow grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
+              <div className="flex flex-col rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 md:p-[22px_24px]">
                 <p className="text-[13px] font-semibold text-[#E9E7E1]">Średnia ocena — ostatnie 7 dni</p>
                 <p className="mb-2 text-[11px] text-[#6F6E76]">Dane z tabeli ocen (ratings)</p>
                 <div className="h-[160px] flex-grow">
@@ -378,7 +395,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-[20px_22px]">
+              <div className="flex flex-col gap-3 overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 md:p-[20px_22px]">
                 <p className="text-[13px] font-semibold text-[#E9E7E1]">Najnowszy feedback</p>
                 {feedbacks.slice(0, 3).map((f) => (
                   <div key={f.id} className="rounded-xl border border-[#2A2A31] p-[11px_13px]">
@@ -396,57 +413,112 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         )}
 
         {tab === 'clients' && (
-          <div className="overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21]">
-            <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
-              <span>Firma</span>
-              <span>Link NFC</span>
-              <span>Status</span>
-              <span>Szablon strony</span>
-              <span>Akcja</span>
-            </div>
-            {filteredCompanies.map((c) => {
-              const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
-              return (
-                <div key={c.id} className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
-                      {c.name.charAt(0)}
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="flex flex-col gap-3 md:hidden">
+              {filteredCompanies.map((c) => {
+                const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
+                return (
+                  <div key={c.id} className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
+                          {c.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-medium text-[#E9E7E1]">{c.name}</p>
+                          <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1 text-[11px] text-[#8FA6C9]">
+                            <LinkIcon size={10} />/r/{c.slug}
+                          </a>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleStatus(c.id, c.is_active)}
+                        aria-label="Przełącz status"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-[#2A2A31]"
+                      >
+                        <Power size={13} color="#8B8A90" />
+                      </button>
                     </div>
-                    <span className="text-[12.5px] font-medium text-[#E9E7E1]">{c.name}</span>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span
+                        className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                        style={{
+                          background: c.is_active ? 'rgba(95,190,138,0.14)' : 'rgba(226,138,107,0.15)',
+                          color: c.is_active ? '#5FBE8A' : '#E28A6B',
+                        }}
+                      >
+                        {c.is_active ? 'Aktywny' : 'Zablokowany'}
+                      </span>
+                      <button
+                        onClick={() => openEditModal(c)}
+                        className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
+                        <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
+                      </button>
+                    </div>
                   </div>
-                  <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1.5 text-xs text-[#8FA6C9]">
-                    <LinkIcon size={12} />/r/{c.slug}
-                  </a>
-                  <span
-                    className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
-                    style={{
-                      background: c.is_active ? 'rgba(95,190,138,0.14)' : 'rgba(226,138,107,0.15)',
-                      color: c.is_active ? '#5FBE8A' : '#E28A6B',
-                    }}
-                  >
-                    {c.is_active ? 'Aktywny' : 'Zablokowany'}
-                  </span>
-                  <button
-                    onClick={() => openEditModal(c)}
-                    className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
-                  >
-                    <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
-                    <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
-                  </button>
-                  <button
-                    onClick={() => toggleStatus(c.id, c.is_active)}
-                    aria-label="Przełącz status"
-                    className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-[#2A2A31]"
-                  >
-                    <Power size={13} color="#8B8A90" />
-                  </button>
-                </div>
-              );
-            })}
-            {filteredCompanies.length === 0 && (
-              <p className="px-[22px] py-6 text-sm text-[#6F6E76]">Brak klientów spełniających kryteria.</p>
-            )}
-          </div>
+                );
+              })}
+              {filteredCompanies.length === 0 && (
+                <p className="py-6 text-sm text-[#6F6E76]">Brak klientów spełniających kryteria.</p>
+              )}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] md:block">
+              <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
+                <span>Firma</span>
+                <span>Link NFC</span>
+                <span>Status</span>
+                <span>Szablon strony</span>
+                <span>Akcja</span>
+              </div>
+              {filteredCompanies.map((c) => {
+                const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
+                return (
+                  <div key={c.id} className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
+                        {c.name.charAt(0)}
+                      </div>
+                      <span className="text-[12.5px] font-medium text-[#E9E7E1]">{c.name}</span>
+                    </div>
+                    <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1.5 text-xs text-[#8FA6C9]">
+                      <LinkIcon size={12} />/r/{c.slug}
+                    </a>
+                    <span
+                      className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                      style={{
+                        background: c.is_active ? 'rgba(95,190,138,0.14)' : 'rgba(226,138,107,0.15)',
+                        color: c.is_active ? '#5FBE8A' : '#E28A6B',
+                      }}
+                    >
+                      {c.is_active ? 'Aktywny' : 'Zablokowany'}
+                    </span>
+                    <button
+                      onClick={() => openEditModal(c)}
+                      className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
+                      <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
+                    </button>
+                    <button
+                      onClick={() => toggleStatus(c.id, c.is_active)}
+                      aria-label="Przełącz status"
+                      className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-[#2A2A31]"
+                    >
+                      <Power size={13} color="#8B8A90" />
+                    </button>
+                  </div>
+                );
+              })}
+              {filteredCompanies.length === 0 && (
+                <p className="px-[22px] py-6 text-sm text-[#6F6E76]">Brak klientów spełniających kryteria.</p>
+              )}
+            </div>
+          </>
         )}
 
         {tab === 'feedback' && (
@@ -507,7 +579,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setModalOpen(false)}
-            className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-20 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
           >
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -515,7 +587,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-[440px] rounded-[20px] border border-[#2E2E36] bg-[#1A1A1F] p-7 shadow-2xl"
+              className="max-h-[90vh] w-full max-w-[440px] overflow-y-auto rounded-[20px] border border-[#2E2E36] bg-[#1A1A1F] p-6 shadow-2xl sm:p-7"
             >
               <div className="mb-[18px] flex items-center justify-between">
                 <p className="text-base font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
@@ -609,7 +681,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         )}
       </AnimatePresence>
 
-      <div className="pointer-events-none absolute bottom-5 right-5 z-30 flex flex-col gap-2">
+      <div className="pointer-events-none fixed inset-x-4 bottom-20 z-30 flex flex-col items-center gap-2 md:absolute md:inset-x-auto md:bottom-5 md:right-5 md:items-end">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
@@ -624,6 +696,24 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
           ))}
         </AnimatePresence>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-[#232328] bg-[#16161A]/95 px-2 py-2 backdrop-blur-lg md:hidden">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className="flex flex-col items-center gap-1 rounded-lg px-3 py-1.5"
+              style={{ color: active ? ACCENT : '#9B9AA1' }}
+            >
+              <Icon size={18} />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
