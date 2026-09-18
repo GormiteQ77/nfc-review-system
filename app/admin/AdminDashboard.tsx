@@ -257,7 +257,12 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const planFields = {
+    const cleanSlug = form.slug.toLowerCase().trim().replace(/\s+/g, '-');
+    const fields = {
+      name: form.name,
+      slug: cleanSlug,
+      google_review_url: form.googleUrl,
+      owner_email: form.ownerEmail,
       template: form.template,
       accent_color: form.accentColor,
       plan: form.plan,
@@ -265,20 +270,10 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     };
 
     if (editingCompany) {
-      await supabase.from('companies').update(planFields).eq('id', editingCompany.id);
-      pushToast(`Zaktualizowano: ${editingCompany.name}`);
+      await supabase.from('companies').update(fields).eq('id', editingCompany.id);
+      pushToast(`Zaktualizowano: ${form.name}`);
     } else {
-      const cleanSlug = form.slug.toLowerCase().trim().replace(/\s+/g, '-');
-      await supabase.from('companies').insert([
-        {
-          name: form.name,
-          slug: cleanSlug,
-          google_review_url: form.googleUrl,
-          owner_email: form.ownerEmail,
-          is_active: true,
-          ...planFields,
-        },
-      ]);
+      await supabase.from('companies').insert([{ ...fields, is_active: true }]);
       pushToast(`Dodano klienta: ${form.name}`);
     }
 
@@ -626,40 +621,43 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               </div>
 
               <form onSubmit={handleSaveClient} className="flex flex-col gap-2.5">
-                {!editingCompany && (
-                  <>
-                    <input
-                      required
-                      placeholder="Nazwa firmy (np. Barber Jan)"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
-                    />
-                    <input
-                      required
-                      placeholder="Końcówka linku (slug)"
-                      value={form.slug}
-                      onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
-                    />
-                    <input
-                      required
-                      type="url"
-                      placeholder="Link do opinii Google"
-                      value={form.googleUrl}
-                      onChange={(e) => setForm({ ...form, googleUrl: e.target.value })}
-                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
-                    />
-                    <input
-                      required
-                      type="email"
-                      placeholder="E-mail klienta"
-                      value={form.ownerEmail}
-                      onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
-                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
-                    />
-                  </>
-                )}
+                <input
+                  required
+                  placeholder="Nazwa firmy (np. Barber Jan)"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                />
+                <div>
+                  <input
+                    required
+                    placeholder="Końcówka linku (slug)"
+                    value={form.slug}
+                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                    className="w-full rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                  />
+                  {editingCompany && (
+                    <p className="mt-1 text-[10.5px] text-[#9B9AA1]">
+                      Zmiana slugu zmieni adres /r/{form.slug || '...'} — jeśli karta NFC jest już zaprogramowana na stary link, przestanie działać.
+                    </p>
+                  )}
+                </div>
+                <input
+                  required
+                  type="url"
+                  placeholder="Link do opinii Google"
+                  value={form.googleUrl}
+                  onChange={(e) => setForm({ ...form, googleUrl: e.target.value })}
+                  className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                />
+                <input
+                  required
+                  type="email"
+                  placeholder="E-mail klienta"
+                  value={form.ownerEmail}
+                  onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
+                  className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                />
 
                 <div>
                   <p className="mb-2 mt-1 text-[11px] text-[#9B9AA1]">Wariant produktu</p>
