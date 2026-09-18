@@ -5,10 +5,17 @@ alter table companies
   add column if not exists template text not null default 'universal',
   add column if not exists accent_color text;
 
-alter table companies
-  add constraint companies_template_check
-  check (template in ('universal', 'kwiaciarnia', 'barbershop', 'restauracja'))
-  not valid;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'companies_template_check'
+  ) then
+    alter table companies
+      add constraint companies_template_check
+      check (template in ('universal', 'kwiaciarnia', 'barbershop', 'restauracja'))
+      not valid;
+  end if;
+end $$;
 
 alter table feedbacks
   add column if not exists resolved boolean not null default false;
@@ -25,10 +32,12 @@ create index if not exists ratings_created_at_idx on ratings (created_at);
 
 alter table ratings enable row level security;
 
-create policy if not exists "Anyone can insert a rating"
+drop policy if exists "Anyone can insert a rating" on ratings;
+create policy "Anyone can insert a rating"
   on ratings for insert
   with check (true);
 
-create policy if not exists "Anyone can read ratings"
+drop policy if exists "Anyone can read ratings" on ratings;
+create policy "Anyone can read ratings"
   on ratings for select
   using (true);
