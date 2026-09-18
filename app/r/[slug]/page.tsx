@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import ReviewCard from './ReviewCard';
 
@@ -30,6 +31,10 @@ export default async function ReviewLandingPage({ params }: { params: { slug: st
         </div>
       </main>
     );
+  }
+
+  if (company.plan === 'direct') {
+    redirect(company.google_review_url);
   }
 
   return <ReviewCard company={company} />;

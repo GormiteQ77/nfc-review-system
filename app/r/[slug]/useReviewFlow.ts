@@ -9,7 +9,7 @@ interface Company {
   google_review_url: string;
 }
 
-export function useReviewFlow(company: Company, accent: string) {
+export function useReviewFlow(company: Company, accent: string, alwaysRedirect: boolean) {
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [sent, setSent] = useState(false);
@@ -20,7 +20,7 @@ export function useReviewFlow(company: Company, accent: string) {
   const pick = (n: number) => {
     setRating(n);
 
-    if (n >= 4) {
+    if (alwaysRedirect || n >= 4) {
       confetti({
         particleCount: 90,
         spread: 70,
@@ -61,7 +61,7 @@ export function useReviewFlow(company: Company, accent: string) {
     ? 'thanks'
     : rating === 0
       ? 'pick'
-      : rating >= 4
+      : alwaysRedirect || rating >= 4
         ? 'positive'
         : 'negative';
 
