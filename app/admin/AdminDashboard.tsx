@@ -1,0 +1,661 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  CheckCircle2,
+  LayoutGrid,
+  Link as LinkIcon,
+  LogOut,
+  MessageSquare,
+  Plus,
+  Power,
+  Search,
+  Settings as SettingsIcon,
+  Users,
+  X,
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import StarfieldBackground from '@/components/StarfieldBackground';
+import { TEMPLATE_OPTIONS, type TemplateId } from '../r/[slug]/themes';
+
+const ACCENT = '#D4A15E';
+const DAY_LABELS = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
+
+interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  google_review_url: string;
+  owner_email: string;
+  is_active: boolean;
+  template: TemplateId;
+  accent_color: string | null;
+  created_at: string;
+}
+
+interface Feedback {
+  id: string;
+  company_id: string;
+  rating: number;
+  message: string;
+  customer_contact: string | null;
+  resolved: boolean;
+  created_at: string;
+  companies?: { name: string } | null;
+}
+
+interface Rating {
+  id: string;
+  company_id: string;
+  rating: number;
+  created_at: string;
+}
+
+type Tab = 'overview' | 'clients' | 'feedback' | 'settings';
+
+interface Toast {
+  id: number;
+  message: string;
+}
+
+const NAV_ITEMS: { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'overview', label: 'Przegląd', icon: LayoutGrid },
+  { id: 'clients', label: 'Klienci', icon: Users },
+  { id: 'feedback', label: 'Opinie', icon: MessageSquare },
+  { id: 'settings', label: 'Ustawienia', icon: SettingsIcon },
+];
+
+function isSameDay(iso: string, date: Date) {
+  return iso.slice(0, 10) === date.toISOString().slice(0, 10);
+}
+
+function isSameMonth(iso: string, date: Date) {
+  const d = new Date(iso);
+  return d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth();
+}
+
+function buildChartData(ratings: Rating[]) {
+  const today = new Date();
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dayRatings = ratings.filter((r) => isSameDay(r.created_at, d));
+    const avg = dayRatings.length
+      ? dayRatings.reduce((sum, r) => sum + r.rating, 0) / dayRatings.length
+      : 0;
+    days.push({ label: DAY_LABELS[d.getDay()], avg: Number(avg.toFixed(2)) });
+  }
+  return days;
+}
+
+export default function AdminDashboard({ userEmail }: { userEmail: string }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>('overview');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    slug: '',
+    googleUrl: '',
+    ownerEmail: '',
+    template: 'universal' as TemplateId,
+    accentColor: ACCENT,
+  });
+
+  const pushToast = (message: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
+
+  const loadData = async () => {
+    const { data: comp } = await supabase
+      .from('companies')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (comp) setCompanies(comp as Company[]);
+
+    const { data: feed } = await supabase
+      .from('feedbacks')
+      .select('*, companies(name)')
+      .order('created_at', { ascending: false });
+    if (feed) setFeedbacks(feed as Feedback[]);
+
+    const { data: rat } = await supabase
+      .from('ratings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (rat) setRatings(rat as Rating[]);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const chartData = useMemo(() => buildChartData(ratings), [ratings]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const activeCount = companies.filter((c) => c.is_active).length;
+    const newCompaniesThisMonth = companies.filter((c) => isSameMonth(c.created_at, now)).length;
+
+    const avgRating = ratings.length
+      ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(2)
+      : '—';
+
+    const last7 = ratings.filter((r) => {
+      const days = (now.getTime() - new Date(r.created_at).getTime()) / 86400000;
+      return days <= 7;
+    });
+    const prev7 = ratings.filter((r) => {
+      const days = (now.getTime() - new Date(r.created_at).getTime()) / 86400000;
+      return days > 7 && days <= 14;
+    });
+    const avg = (list: Rating[]) => (list.length ? list.reduce((s, r) => s + r.rating, 0) / list.length : null);
+    const avgLast7 = avg(last7);
+    const avgPrev7 = avg(prev7);
+    const ratingTrend =
+      avgLast7 !== null && avgPrev7 !== null
+        ? `${avgLast7 >= avgPrev7 ? '↑' : '↓'} ${Math.abs(avgLast7 - avgPrev7).toFixed(2)} vs poprzedni tydzień`
+        : 'Za mało danych';
+
+    const ratingsThisMonth = ratings.filter((r) => isSameMonth(r.created_at, now)).length;
+    const needsContact = feedbacks.filter((f) => !f.resolved).length;
+
+    return {
+      activeCount,
+      newCompaniesThisMonth,
+      avgRating,
+      ratingTrend,
+      ratingsThisMonth,
+      needsContact,
+    };
+  }, [companies, ratings, feedbacks]);
+
+  const filteredCompanies = companies.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.slug.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const openAddModal = () => {
+    setEditingCompany(null);
+    setForm({ name: '', slug: '', googleUrl: '', ownerEmail: '', template: 'universal', accentColor: ACCENT });
+    setModalOpen(true);
+  };
+
+  const openEditModal = (company: Company) => {
+    setEditingCompany(company);
+    setForm({
+      name: company.name,
+      slug: company.slug,
+      googleUrl: company.google_review_url,
+      ownerEmail: company.owner_email,
+      template: company.template ?? 'universal',
+      accentColor: company.accent_color ?? ACCENT,
+    });
+    setModalOpen(true);
+  };
+
+  const handleSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (editingCompany) {
+      await supabase
+        .from('companies')
+        .update({ template: form.template, accent_color: form.accentColor })
+        .eq('id', editingCompany.id);
+      pushToast(`Zaktualizowano szablon: ${editingCompany.name}`);
+    } else {
+      const cleanSlug = form.slug.toLowerCase().trim().replace(/\s+/g, '-');
+      await supabase.from('companies').insert([
+        {
+          name: form.name,
+          slug: cleanSlug,
+          google_review_url: form.googleUrl,
+          owner_email: form.ownerEmail,
+          template: form.template,
+          accent_color: form.accentColor,
+          is_active: true,
+        },
+      ]);
+      pushToast(`Dodano klienta: ${form.name}`);
+    }
+
+    setModalOpen(false);
+    loadData();
+  };
+
+  const toggleStatus = async (id: string, current: boolean) => {
+    await supabase.from('companies').update({ is_active: !current }).eq('id', id);
+    pushToast(!current ? 'Wizytówka aktywowana' : 'Wizytówka zablokowana');
+    loadData();
+  };
+
+  const toggleResolved = async (id: string, current: boolean) => {
+    await supabase.from('feedbacks').update({ resolved: !current }).eq('id', id);
+    loadData();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
+
+  return (
+    <div className="relative flex min-h-screen overflow-hidden bg-[#101012]">
+      <StarfieldBackground accent={ACCENT} starCount={16} />
+
+      <aside className="relative z-10 flex w-[248px] shrink-0 flex-col border-r border-[#232328] bg-[#16161A] p-[18px_18px_26px]">
+        <div className="mb-[18px] flex items-center gap-2.5 border-b border-[#232328] px-2.5 pb-6">
+          <div
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px]"
+            style={{ background: `linear-gradient(160deg, ${ACCENT}, #8A6B3A)` }}
+          >
+            <ShieldGlyph />
+          </div>
+          <div>
+            <p className="text-[14.5px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+              NFC Panel
+            </p>
+            <p className="text-[10.5px] text-[#6F6E76]">Premium</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-[3px]">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                className="relative flex items-center gap-[11px] overflow-hidden rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium"
+                style={{ color: active ? ACCENT : '#9B9AA1' }}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="nav-highlight"
+                    className="absolute inset-0 rounded-[10px]"
+                    style={{ background: 'rgba(212,161,94,0.12)', borderLeft: `3px solid ${ACCENT}` }}
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                  />
+                )}
+                <Icon size={16} className="relative z-10" />
+                <span className="relative z-10">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-auto flex items-center gap-2.5 rounded-xl border border-[#232328] bg-[#1C1C21] p-3">
+          <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
+            {userEmail.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-[#E9E7E1]">{userEmail}</p>
+            <p className="text-[10.5px] text-[#6F6E76]">Plan Premium</p>
+          </div>
+          <button onClick={handleLogout} aria-label="Wyloguj się" className="p-1 text-[#9B9AA1] hover:text-[#E28A6B]">
+            <LogOut size={15} />
+          </button>
+        </div>
+      </aside>
+
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden p-[34px_40px]">
+        <div className="mb-7 flex items-center justify-between">
+          <div>
+            <h1 className="text-[22px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+              {NAV_ITEMS.find((n) => n.id === tab)?.label}
+            </h1>
+            <p className="mt-1 text-[12.5px] text-[#6F6E76]">Karty NFC &amp; opinie</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex w-[220px] items-center gap-2 rounded-[11px] border border-[#2A2A31] bg-[#1C1C21] px-3.5 py-2.5">
+              <Search size={14} color="#6F6E76" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Szukaj klienta..."
+                className="w-full bg-transparent text-[12.5px] text-[#E9E7E1] outline-none placeholder:text-[#6F6E76]"
+              />
+            </div>
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-1.5 rounded-[11px] px-4 py-2.5 text-[12.5px] font-semibold text-[#1A1305]"
+              style={{ background: ACCENT }}
+            >
+              <Plus size={14} strokeWidth={2.4} />
+              Dodaj klienta
+            </button>
+          </div>
+        </div>
+
+        {tab === 'overview' && (
+          <div className="flex flex-col gap-[22px] overflow-auto">
+            <div className="grid grid-cols-4 gap-4">
+              <StatCard label="Aktywne wizytówki" value={String(stats.activeCount)} trend={`↑ ${stats.newCompaniesThisMonth} w tym miesiącu`} trendColor="#5FBE8A" />
+              <StatCard label="Średnia ocena" value={stats.avgRating} trend={stats.ratingTrend} trendColor="#5FBE8A" />
+              <StatCard label="Opinie w tym miesiącu" value={String(stats.ratingsThisMonth)} trend="Wszystkie oceny 1–5★" trendColor="#5FBE8A" />
+              <StatCard label="Wymaga kontaktu" value={String(stats.needsContact)} trend="Oceny 1–3★" trendColor="#E28A6B" />
+            </div>
+
+            <div className="grid flex-grow grid-cols-[1.6fr_1fr] gap-4">
+              <div className="flex flex-col rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-[22px_24px]">
+                <p className="text-[13px] font-semibold text-[#E9E7E1]">Średnia ocena — ostatnie 7 dni</p>
+                <p className="mb-2 text-[11px] text-[#6F6E76]">Dane z tabeli ocen (ratings)</p>
+                <div className="h-[160px] flex-grow">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <XAxis dataKey="label" tick={{ fill: '#6F6E76', fontSize: 10.5 }} axisLine={false} tickLine={false} />
+                      <YAxis hide domain={[0, 5]} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                        contentStyle={{ background: '#1C1C21', border: '1px solid #2A2A31', borderRadius: 10, fontSize: 12 }}
+                        labelStyle={{ color: '#E9E7E1' }}
+                      />
+                      <Bar dataKey="avg" fill={ACCENT} radius={[7, 7, 3, 3]} maxBarSize={26} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-[20px_22px]">
+                <p className="text-[13px] font-semibold text-[#E9E7E1]">Najnowszy feedback</p>
+                {feedbacks.slice(0, 3).map((f) => (
+                  <div key={f.id} className="rounded-xl border border-[#2A2A31] p-[11px_13px]">
+                    <div className="flex justify-between text-xs font-semibold text-[#E9E7E1]">
+                      <span>{f.companies?.name ?? '—'}</span>
+                      <span style={{ color: '#E28A6B' }}>{f.rating}★</span>
+                    </div>
+                    <p className="mt-1 text-[11.5px] leading-snug text-[#8B8A90]">{f.message}</p>
+                  </div>
+                ))}
+                {feedbacks.length === 0 && <p className="text-xs text-[#6F6E76]">Brak zgłoszeń.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'clients' && (
+          <div className="overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21]">
+            <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
+              <span>Firma</span>
+              <span>Link NFC</span>
+              <span>Status</span>
+              <span>Szablon strony</span>
+              <span>Akcja</span>
+            </div>
+            {filteredCompanies.map((c) => {
+              const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
+              return (
+                <div key={c.id} className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
+                      {c.name.charAt(0)}
+                    </div>
+                    <span className="text-[12.5px] font-medium text-[#E9E7E1]">{c.name}</span>
+                  </div>
+                  <a href={`/r/${c.slug}`} target="_blank" className="flex items-center gap-1.5 text-xs text-[#8FA6C9]">
+                    <LinkIcon size={12} />/r/{c.slug}
+                  </a>
+                  <span
+                    className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                    style={{
+                      background: c.is_active ? 'rgba(95,190,138,0.14)' : 'rgba(226,138,107,0.15)',
+                      color: c.is_active ? '#5FBE8A' : '#E28A6B',
+                    }}
+                  >
+                    {c.is_active ? 'Aktywny' : 'Zablokowany'}
+                  </span>
+                  <button
+                    onClick={() => openEditModal(c)}
+                    className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5"
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
+                    <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
+                  </button>
+                  <button
+                    onClick={() => toggleStatus(c.id, c.is_active)}
+                    aria-label="Przełącz status"
+                    className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-[#2A2A31]"
+                  >
+                    <Power size={13} color="#8B8A90" />
+                  </button>
+                </div>
+              );
+            })}
+            {filteredCompanies.length === 0 && (
+              <p className="px-[22px] py-6 text-sm text-[#6F6E76]">Brak klientów spełniających kryteria.</p>
+            )}
+          </div>
+        )}
+
+        {tab === 'feedback' && (
+          <div className="flex flex-col gap-3 overflow-auto">
+            {feedbacks.map((f) => (
+              <div key={f.id} className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[16px_20px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-[#E9E7E1]">
+                    {f.companies?.name ?? '—'} · <span style={{ color: '#E28A6B' }}>{f.rating}★</span>
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-[#6F6E76]">{new Date(f.created_at).toLocaleDateString('pl-PL')}</span>
+                    <button
+                      onClick={() => toggleResolved(f.id, f.resolved)}
+                      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold"
+                      style={{
+                        borderColor: f.resolved ? 'rgba(95,190,138,0.4)' : '#2A2A31',
+                        color: f.resolved ? '#5FBE8A' : '#9B9AA1',
+                      }}
+                    >
+                      <CheckCircle2 size={12} />
+                      {f.resolved ? 'Obsłużono' : 'Oznacz jako obsłużone'}
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-[#B7B5B0]">{f.message}</p>
+                {f.customer_contact && (
+                  <p className="mt-1.5 text-[11.5px]" style={{ color: ACCENT }}>
+                    Kontakt: {f.customer_contact}
+                  </p>
+                )}
+              </div>
+            ))}
+            {feedbacks.length === 0 && <p className="text-sm text-[#6F6E76]">Brak prywatnego feedbacku.</p>}
+          </div>
+        )}
+
+        {tab === 'settings' && (
+          <div className="max-w-[480px] rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-[26px]">
+            <p className="mb-4 text-[13px] font-semibold text-[#E9E7E1]">Konto</p>
+            <p className="text-[12.5px] text-[#B7B5B0]">Zalogowano jako:</p>
+            <p className="mb-5 text-[13px] font-medium text-[#F5F3EE]">{userEmail}</p>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 rounded-xl border border-[#2A2A31] px-4 py-2.5 text-[12.5px] font-medium text-[#E28A6B]"
+            >
+              <LogOut size={14} />
+              Wyloguj się
+            </button>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setModalOpen(false)}
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-[440px] rounded-[20px] border border-[#2E2E36] bg-[#1A1A1F] p-7 shadow-2xl"
+            >
+              <div className="mb-[18px] flex items-center justify-between">
+                <p className="text-base font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+                  {editingCompany ? `Edytuj szablon: ${editingCompany.name}` : 'Dodaj nowego klienta'}
+                </p>
+                <button onClick={() => setModalOpen(false)} aria-label="Zamknij">
+                  <X size={16} color="#8B8A90" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveClient} className="flex flex-col gap-2.5">
+                {!editingCompany && (
+                  <>
+                    <input
+                      required
+                      placeholder="Nazwa firmy (np. Barber Jan)"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                    />
+                    <input
+                      required
+                      placeholder="Końcówka linku (slug)"
+                      value={form.slug}
+                      onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                    />
+                    <input
+                      required
+                      type="url"
+                      placeholder="Link do opinii Google"
+                      value={form.googleUrl}
+                      onChange={(e) => setForm({ ...form, googleUrl: e.target.value })}
+                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                    />
+                    <input
+                      required
+                      type="email"
+                      placeholder="E-mail klienta"
+                      value={form.ownerEmail}
+                      onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
+                      className="rounded-[11px] border border-[#2A2A31] bg-[#101012] px-3.5 py-[11px] text-[12.5px] text-[#E9E7E1] outline-none"
+                    />
+                  </>
+                )}
+
+                <div>
+                  <p className="mb-2 mt-1 text-[11px] text-[#9B9AA1]">Szablon strony opinii (wygląd dla klienta)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {TEMPLATE_OPTIONS.map((t) => {
+                      const selected = form.template === t.id;
+                      return (
+                        <button
+                          type="button"
+                          key={t.id}
+                          onClick={() => setForm({ ...form, template: t.id, accentColor: t.accentDefault })}
+                          className="flex items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left"
+                          style={{
+                            borderColor: selected ? ACCENT : '#2A2A31',
+                            background: selected ? 'rgba(212,161,94,0.1)' : 'transparent',
+                          }}
+                        >
+                          <span className="h-6 w-6 shrink-0 rounded-[7px] border border-white/15" style={{ background: t.swatch }} />
+                          <span className="text-[11.5px] text-[#E9E7E1]">{t.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-[11px] border border-[#2A2A31] px-3.5 py-2.5">
+                  <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
+                  <input
+                    type="color"
+                    value={form.accentColor}
+                    onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+                    className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="mt-1.5 rounded-xl py-3 text-[13px] font-semibold text-[#1A1305]"
+                  style={{ background: ACCENT }}
+                >
+                  {editingCompany ? 'Zapisz szablon' : 'Zapisz klienta i wygeneruj link'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="pointer-events-none absolute bottom-5 right-5 z-30 flex flex-col gap-2">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="rounded-xl border border-[#2A2A31] bg-[#1C1C21] px-4 py-3 text-[12.5px] text-[#E9E7E1] shadow-xl"
+            >
+              {t.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function ShieldGlyph() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101012" strokeWidth="2.4" strokeLinecap="round">
+      <path d="M12 2l7 4v6c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6z" />
+    </svg>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  trend,
+  trendColor,
+}: {
+  label: string;
+  value: string;
+  trend: string;
+  trendColor: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[18px_20px]">
+      <p className="mb-2.5 text-[11.5px] text-[#8B8A90]">{label}</p>
+      <p className="text-[26px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+        {value}
+      </p>
+      <p className="mt-2 text-[11px]" style={{ color: trendColor }}>
+        {trend}
+      </p>
+    </div>
+  );
+}
