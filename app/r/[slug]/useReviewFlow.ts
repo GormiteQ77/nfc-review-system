@@ -20,7 +20,7 @@ export function useReviewFlow(company: Company, accent: string, alwaysRedirect: 
   const pick = (n: number) => {
     setRating(n);
 
-    if (alwaysRedirect || n >= 4) {
+    if (n >= 4) {
       confetti({
         particleCount: 90,
         spread: 70,
