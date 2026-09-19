@@ -30,28 +30,23 @@ export async function middleware(request: NextRequest) {
 
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
   const isLoginRoute = request.nextUrl.pathname === '/login';
-  const isClientRoute = request.nextUrl.pathname.startsWith('/client') && request.nextUrl.pathname !== '/client/login';
-  const isClientLoginRoute = request.nextUrl.pathname === '/client/login';
+  const isClientRoute = request.nextUrl.pathname.startsWith('/client');
 
-  if (isAdminRoute && !session) {
+  if ((isAdminRoute || isClientRoute) && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // Whether a signed-in session lands on /admin or /client is decided by
+  // those pages themselves (by matching the account's email against
+  // companies.owner_email) — the middleware just keeps signed-in users off
+  // the shared /login page.
   if (isLoginRoute && session) {
     return NextResponse.redirect(new URL('/admin', request.url));
-  }
-
-  if (isClientRoute && !session) {
-    return NextResponse.redirect(new URL('/client/login', request.url));
-  }
-
-  if (isClientLoginRoute && session) {
-    return NextResponse.redirect(new URL('/client', request.url));
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login', '/client/:path*'],
+  matcher: ['/admin/:path*', '/client/:path*', '/login'],
 };

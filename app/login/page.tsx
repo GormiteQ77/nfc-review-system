@@ -86,7 +86,7 @@ export default function LoginPage() {
             Panel NFC
           </h1>
           <p className="mt-1 text-center text-xs text-[#9B9AA1]">
-            {mode === 'login' ? 'Zaloguj się, aby zarządzać wizytówkami' : 'Zresetuj hasło do panelu'}
+            {mode === 'login' ? 'Zaloguj się do panelu' : 'Zresetuj hasło do panelu'}
           </p>
         </div>
 
