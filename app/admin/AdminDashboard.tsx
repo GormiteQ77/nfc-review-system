@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  AlertCircle,
   CheckCircle2,
   ImagePlus,
   LayoutGrid,
@@ -22,8 +23,10 @@ import {
   Power,
   Search,
   Settings as SettingsIcon,
+  Star,
   Users,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import StarfieldBackground from '@/components/StarfieldBackground';
@@ -199,6 +202,14 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   }, []);
 
   const chartData = useMemo(() => buildChartData(ratings), [ratings]);
+
+  const expiringSoon = useMemo(() => {
+    return companies.filter((c) => {
+      if (!c.subscription_expires_at) return false;
+      const days = Math.ceil((new Date(c.subscription_expires_at).getTime() - Date.now()) / 86400000);
+      return days >= 0 && days <= 7;
+    });
+  }, [companies]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -457,11 +468,44 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
         {tab === 'overview' && (
           <div className="flex flex-col gap-4 overflow-auto md:gap-[22px]">
+            {expiringSoon.length > 0 && (
+              <button
+                onClick={() => setTab('clients')}
+                className="flex flex-col gap-4 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 text-left sm:flex-row sm:items-center md:p-[22px_26px]"
+              >
+                <div className="flex items-center justify-between sm:contents">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
+                    Do zrobienia w tym tygodniu
+                  </span>
+                  <span
+                    className="rounded-full px-2.5 py-1 text-[10.5px] font-bold sm:order-3"
+                    style={{ background: 'rgba(212,161,94,0.15)', color: ACCENT }}
+                  >
+                    {expiringSoon.length} {expiringSoon.length === 1 ? 'KLIENT' : 'KLIENTÓW'}
+                  </span>
+                </div>
+                <div className="flex flex-1 items-center gap-4 sm:order-2">
+                  <div className="min-w-[46px] text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: ACCENT }}>
+                      Wkr.
+                    </p>
+                    <p className="text-[20px] font-bold text-[#F5F3EE]">{expiringSoon.length}</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[14px] font-semibold text-[#E9E7E1]">Subskrypcje kończące się w tym tygodniu</p>
+                    <p className="mt-0.5 text-[12px] text-[#8B8A90]">
+                      Skontaktuj się z klientami, zanim ich karty przestaną kierować do Google
+                    </p>
+                  </div>
+                </div>
+              </button>
+            )}
+
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-              <StatCard label="Aktywne wizytówki" value={String(stats.activeCount)} trend={`↑ ${stats.newCompaniesThisMonth} w tym miesiącu`} trendColor="#5FBE8A" />
-              <StatCard label="Średnia ocena" value={stats.avgRating} trend={stats.ratingTrend} trendColor="#5FBE8A" />
-              <StatCard label="Opinie w tym miesiącu" value={String(stats.ratingsThisMonth)} trend="Wszystkie oceny 1–5★" trendColor="#5FBE8A" />
-              <StatCard label="Wymaga kontaktu" value={String(stats.needsContact)} trend="Oceny 1–3★" trendColor="#E28A6B" />
+              <StatCard icon={LayoutGrid} label="Aktywne wizytówki" value={String(stats.activeCount)} trend={`↑ ${stats.newCompaniesThisMonth} w tym miesiącu`} trendColor="#5FBE8A" />
+              <StatCard icon={Star} label="Średnia ocena" value={stats.avgRating} trend={stats.ratingTrend} trendColor="#5FBE8A" />
+              <StatCard icon={MessageSquare} label="Opinie w tym miesiącu" value={String(stats.ratingsThisMonth)} trend="Wszystkie oceny 1–5★" trendColor="#5FBE8A" />
+              <StatCard icon={AlertCircle} label="Wymaga kontaktu" value={String(stats.needsContact)} trend="Oceny 1–3★" trendColor="#E28A6B" />
             </div>
 
             <div className="grid flex-grow grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
@@ -1106,25 +1150,35 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 }
 
 function StatCard({
+  icon: Icon,
   label,
   value,
   trend,
   trendColor,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string;
   trend: string;
   trendColor: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[18px_20px]">
-      <p className="mb-2.5 text-[11.5px] text-[#8B8A90]">{label}</p>
-      <p className="text-[26px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-        {value}
-      </p>
-      <p className="mt-2 text-[11px]" style={{ color: trendColor }}>
-        {trend}
-      </p>
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[18px_20px]">
+      <div className="min-w-0">
+        <p className="text-[26px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+          {value}
+        </p>
+        <p className="mt-1 truncate text-[11.5px] text-[#8B8A90]">{label}</p>
+        <p className="mt-2 truncate text-[11px]" style={{ color: trendColor }}>
+          {trend}
+        </p>
+      </div>
+      <div
+        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full"
+        style={{ background: 'rgba(212,161,94,0.12)', border: '1px solid rgba(212,161,94,0.25)' }}
+      >
+        <Icon size={18} color={ACCENT} />
+      </div>
     </div>
   );
 }
