@@ -361,89 +361,67 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#101012] md:flex-row">
-      <StarfieldBackground accent={ACCENT} starCount={16} />
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#101012]">
+      <StarfieldBackground accent={ACCENT} starCount={20} />
 
-      <div className="relative z-10 flex items-center justify-between border-b border-[#232328] bg-[#16161A] px-4 py-3.5 md:hidden">
-        <div className="flex items-center gap-2">
+      <div className="relative z-10 flex items-center justify-between px-4 py-4 md:px-10 md:py-6">
+        <div className="flex items-center gap-2.5">
           <div
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px]"
-            style={{ background: `linear-gradient(160deg, ${ACCENT}, #8A6B3A)` }}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] border"
+            style={{ background: '#16161A', borderColor: `${ACCENT}55` }}
           >
-            <ShieldGlyph />
+            <ShieldGlyph stroke={ACCENT} />
           </div>
-          <p className="text-[13.5px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-            NFC Panel
-          </p>
+          <span className="text-[15px] font-bold tracking-tight text-[#F2F0EA]">PANEL NFC</span>
         </div>
-        <button onClick={handleLogout} aria-label="Wyloguj się" className="p-1 text-[#9B9AA1]">
-          <LogOut size={16} />
-        </button>
-      </div>
-
-      <aside className="relative z-10 hidden w-[248px] shrink-0 flex-col border-r border-[#232328] bg-[#16161A] p-[18px_18px_26px] md:flex">
-        <div className="mb-[18px] flex items-center gap-2.5 border-b border-[#232328] px-2.5 pb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 rounded-full border border-[#2A2A31] px-4 py-2 text-[12px] font-semibold text-[#C9C7C2]"
+          >
+            <LogOut size={13} />
+            Wyloguj
+          </button>
           <div
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px]"
-            style={{ background: `linear-gradient(160deg, ${ACCENT}, #8A6B3A)` }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+            style={{ background: 'rgba(212,161,94,0.15)', border: `1px solid ${ACCENT}55`, color: ACCENT }}
           >
-            <ShieldGlyph />
-          </div>
-          <div>
-            <p className="text-[14.5px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-              NFC Panel
-            </p>
-            <p className="text-[10.5px] text-[#6F6E76]">Premium</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-[3px]">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = tab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setTab(item.id)}
-                className="relative flex items-center gap-[11px] overflow-hidden rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium"
-                style={{ color: active ? ACCENT : '#9B9AA1' }}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="nav-highlight"
-                    className="absolute inset-0 rounded-[10px]"
-                    style={{ background: 'rgba(212,161,94,0.12)', borderLeft: `3px solid ${ACCENT}` }}
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
-                  />
-                )}
-                <Icon size={16} className="relative z-10" />
-                <span className="relative z-10">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-auto flex items-center gap-2.5 rounded-xl border border-[#232328] bg-[#1C1C21] p-3">
-          <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
             {userEmail.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-[#E9E7E1]">{userEmail}</p>
-            <p className="text-[10.5px] text-[#6F6E76]">Plan Premium</p>
-          </div>
-          <button onClick={handleLogout} aria-label="Wyloguj się" className="p-1 text-[#9B9AA1] hover:text-[#E28A6B]">
-            <LogOut size={15} />
-          </button>
         </div>
-      </aside>
+      </div>
 
-      <div className="relative z-10 flex flex-1 flex-col overflow-y-auto p-4 pb-24 md:overflow-hidden md:p-[34px_40px] md:pb-[34px]">
+      <div className="relative z-10 mx-4 mb-6 flex w-fit gap-1.5 rounded-full border border-[#2A2A31] p-1.5 md:mx-10">
+        {NAV_ITEMS.map((item) => {
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className="relative overflow-hidden rounded-full px-5 py-2 text-[12.5px] font-bold"
+              style={{ color: active ? '#101012' : '#C9C7C2' }}
+            >
+              {active && (
+                <motion.span
+                  layoutId="pill-nav-highlight"
+                  className="absolute inset-0 rounded-full"
+                  style={{ background: ACCENT }}
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                />
+              )}
+              <span className="relative z-10">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 pb-10 md:overflow-hidden md:px-10 md:pb-10">
         <div className="mb-5 flex flex-col gap-3 md:mb-7 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-[19px] font-semibold text-[#F5F3EE] md:text-[22px]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+            <h1 className="text-[24px] font-extrabold tracking-tight text-[#F2F0EA] md:text-[30px]">
               {NAV_ITEMS.find((n) => n.id === tab)?.label}
             </h1>
-            <p className="mt-1 text-[12.5px] text-[#6F6E76]">Karty NFC &amp; opinie</p>
+            <p className="mt-1 text-[13px] text-[#8A887F]">Karty NFC i opinie</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:gap-3">
             <div className="flex w-full items-center gap-2 rounded-[11px] border border-[#2A2A31] bg-[#1C1C21] px-3.5 py-2.5 sm:w-[220px]">
@@ -707,7 +685,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               className="max-h-[90vh] w-full max-w-[440px] overflow-y-auto rounded-[20px] border border-[#2E2E36] bg-[#1A1A1F] p-6 shadow-2xl sm:p-7"
             >
               <div className="mb-[18px] flex items-center justify-between">
-                <p className="text-base font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+                <p className="text-base font-bold text-[#F5F3EE]">
                   {editingCompany ? editingCompany.name : 'Dodaj nowego klienta'}
                 </p>
                 <button onClick={() => setModalOpen(false)} aria-label="Zamknij">
@@ -1093,7 +1071,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         )}
       </AnimatePresence>
 
-      <div className="pointer-events-none fixed inset-x-4 bottom-20 z-50 flex flex-col items-center gap-2 md:absolute md:inset-x-auto md:bottom-5 md:right-5 md:items-end">
+      <div className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-5 sm:items-end">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
@@ -1108,31 +1086,13 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
           ))}
         </AnimatePresence>
       </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-[#232328] bg-[#16161A]/95 px-2 py-2 backdrop-blur-lg md:hidden">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className="flex flex-col items-center gap-1 rounded-lg px-3 py-1.5"
-              style={{ color: active ? ACCENT : '#9B9AA1' }}
-            >
-              <Icon size={18} />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
     </div>
   );
 }
 
-function ShieldGlyph() {
+function ShieldGlyph({ stroke = '#101012' }: { stroke?: string }) {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101012" strokeWidth="2.4" strokeLinecap="round">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round">
       <path d="M12 2l7 4v6c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6z" />
     </svg>
   );
@@ -1141,9 +1101,7 @@ function ShieldGlyph() {
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[#2A2A31] p-2.5 text-center">
-      <p className="text-[15px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-        {value}
-      </p>
+      <p className="text-[15px] font-bold text-[#F5F3EE]">{value}</p>
       <p className="mt-0.5 text-[10px] text-[#8B8A90]">{label}</p>
     </div>
   );
@@ -1165,9 +1123,7 @@ function StatCard({
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-[18px_20px]">
       <div className="min-w-0">
-        <p className="text-[26px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
-          {value}
-        </p>
+        <p className="text-[26px] font-extrabold tracking-tight text-[#F5F3EE]">{value}</p>
         <p className="mt-1 truncate text-[11.5px] text-[#8B8A90]">{label}</p>
         <p className="mt-2 truncate text-[11px]" style={{ color: trendColor }}>
           {trend}
