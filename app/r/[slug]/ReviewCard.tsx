@@ -60,15 +60,12 @@ function Decoration({ template, accent }: { template: TemplateId; accent: string
 
   if (template === 'barbershop') {
     return (
-      <div className="pointer-events-none absolute left-0 top-0 h-[130px] w-full overflow-hidden opacity-[0.16]">
-        <div
-          className="-ml-20 -mt-16 h-[260px] w-[550px]"
-          style={{
-            background:
-              'repeating-linear-gradient(45deg, #9B3A3A 0 18px, #E9E2D0 18px 36px, #2B3A4A 36px 54px)',
-          }}
-        />
-      </div>
+      <div
+        className="pointer-events-none absolute left-0 top-0 h-[130px] w-full opacity-[0.16]"
+        style={{
+          background: 'repeating-linear-gradient(45deg, #9B3A3A 0 18px, #E9E2D0 18px 36px, #2B3A4A 36px 54px)',
+        }}
+      />
     );
   }
 
@@ -105,6 +102,7 @@ export default function ReviewCard({ company }: { company: Company }) {
     fontStyle: theme.fontDisplayItalic ? ('italic' as const) : ('normal' as const),
     color: theme.textPrimary,
   };
+  const pageHeadingStyle = { ...headingStyle, color: theme.pageTextPrimary };
 
   return (
     <main
@@ -121,11 +119,11 @@ export default function ReviewCard({ company }: { company: Company }) {
           <Logo template={templateId} accent={accent} initial={company.name.charAt(0)} />
         </div>
 
-        <h1 className="text-center text-[22px] font-semibold" style={headingStyle}>
+        <h1 className="text-center text-[22px] font-semibold" style={pageHeadingStyle}>
           {company.name}
         </h1>
         {company.description && (
-          <p className="mt-1 text-center text-xs" style={{ color: theme.textSecondary }}>
+          <p className="mt-1 text-center text-xs" style={{ color: theme.pageTextSecondary }}>
             {company.description}
           </p>
         )}
@@ -300,7 +298,7 @@ export default function ReviewCard({ company }: { company: Company }) {
               target="_blank"
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[12.5px] font-medium"
-              style={{ borderColor: cardBorder, color: theme.textPrimary }}
+              style={{ borderColor: cardBorder, color: theme.pageTextPrimary }}
             >
               <Instagram size={14} /> Instagram
             </a>
@@ -311,7 +309,7 @@ export default function ReviewCard({ company }: { company: Company }) {
               target="_blank"
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[12.5px] font-medium"
-              style={{ borderColor: cardBorder, color: theme.textPrimary }}
+              style={{ borderColor: cardBorder, color: theme.pageTextPrimary }}
             >
               <Facebook size={14} /> Facebook
             </a>
@@ -322,14 +320,14 @@ export default function ReviewCard({ company }: { company: Company }) {
               target="_blank"
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[12.5px] font-medium"
-              style={{ borderColor: cardBorder, color: theme.textPrimary }}
+              style={{ borderColor: cardBorder, color: theme.pageTextPrimary }}
             >
               <Globe size={14} /> Strona WWW
             </a>
           )}
         </div>
 
-        <p className="mt-3.5 flex items-center gap-1.5 text-[10.5px]" style={{ color: theme.textSecondary }}>
+        <p className="mt-3.5 flex items-center gap-1.5 text-[10.5px]" style={{ color: theme.pageTextSecondary }}>
           <ShieldCheck size={11} />
           Bezpieczne i anonimowe
         </p>

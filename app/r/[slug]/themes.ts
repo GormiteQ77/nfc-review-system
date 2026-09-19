@@ -9,6 +9,8 @@ export interface ReviewTheme {
   cardRadius: string;
   textPrimary: string;
   textSecondary: string;
+  pageTextPrimary: string;
+  pageTextSecondary: string;
   accentDefault: string;
   starMutedFill: string;
   starMutedStroke: string;
@@ -41,6 +43,8 @@ export const THEMES: Record<TemplateId, ReviewTheme> = {
     cardRadius: '26px',
     textPrimary: '#211D18',
     textSecondary: '#8B7F6B',
+    pageTextPrimary: '#211D18',
+    pageTextSecondary: '#8B7F6B',
     accentDefault: '#B8863B',
     starMutedFill: '#E7DEC9',
     starMutedStroke: '#D8CDB4',
@@ -72,6 +76,8 @@ export const THEMES: Record<TemplateId, ReviewTheme> = {
     cardRadius: '22px',
     textPrimary: '#33301F',
     textSecondary: '#8B8874',
+    pageTextPrimary: '#33301F',
+    pageTextSecondary: '#8B8874',
     accentDefault: '#7C8B6F',
     starMutedFill: '#E5E1CF',
     starMutedStroke: '#D8D3BC',
@@ -102,6 +108,8 @@ export const THEMES: Record<TemplateId, ReviewTheme> = {
     cardRadius: '18px',
     textPrimary: '#F1ECDD',
     textSecondary: '#9A9384',
+    pageTextPrimary: '#F1ECDD',
+    pageTextSecondary: '#9A9384',
     accentDefault: '#C9A227',
     starMutedFill: '#3A362E',
     starMutedStroke: '#4A453A',
@@ -132,6 +140,8 @@ export const THEMES: Record<TemplateId, ReviewTheme> = {
     cardRadius: '4px',
     textPrimary: '#2A211B',
     textSecondary: '#8A7A63',
+    pageTextPrimary: '#F3ECDD',
+    pageTextSecondary: '#B7AC97',
     accentDefault: '#C9A15A',
     starMutedFill: '#E4D8C2',
     starMutedStroke: '#D6C7A8',
