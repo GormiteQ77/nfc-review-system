@@ -33,6 +33,8 @@ export default async function ReviewLandingPage({ params }: { params: { slug: st
     );
   }
 
+  await supabase.from('page_views').insert([{ company_id: company.id }]);
+
   if (company.plan === 'direct') {
     redirect(company.google_review_url);
   }

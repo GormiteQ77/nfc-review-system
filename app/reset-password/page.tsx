@@ -66,8 +66,16 @@ export default function ResetPasswordPage() {
     }
 
     setDone(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: matchedCompany } = user?.email
+      ? await supabase.from('companies').select('id').ilike('owner_email', user.email).maybeSingle()
+      : { data: null };
+
     setTimeout(() => {
-      router.push('/admin');
+      router.push(matchedCompany ? '/client' : '/admin');
       router.refresh();
     }, 1500);
   };
