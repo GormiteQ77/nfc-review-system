@@ -372,7 +372,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
           >
             <ShieldGlyph stroke={ACCENT} />
           </div>
-          <span className="text-[15px] font-bold tracking-tight text-[#F2F0EA]">PANEL NFC</span>
+          <span className="text-[15px] font-bold tracking-tight text-[#F2F0EA]">PANEL</span>
         </div>
         <div className="flex items-center gap-3">
           <button
