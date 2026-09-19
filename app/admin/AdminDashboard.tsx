@@ -271,7 +271,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       accentColor: company.accent_color ?? ACCENT,
       plan: company.plan ?? 'full',
       subscriptionExpiresAt: company.subscription_expires_at ?? '',
-      customTheme: company.custom_theme ?? DEFAULT_CUSTOM_THEME,
+      customTheme: { ...DEFAULT_CUSTOM_THEME, ...company.custom_theme },
     });
     setModalOpen(true);
   };
@@ -802,6 +802,50 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                             type="color"
                             value={form.customTheme.cardBg}
                             onChange={(e) => updateCustomTheme('cardBg', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <p className="mt-1 text-[10.5px] text-[#9B9AA1]">
+                          Kolory tekstu — ustaw je ręcznie, żeby mieć pewność, że będą czytelne na wybranym tle
+                        </p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Nazwa firmy i opis (na tle strony)</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.pageTextPrimary}
+                            onChange={(e) => updateCustomTheme('pageTextPrimary', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Podpisy, linki i stopka (na tle strony)</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.pageTextSecondary}
+                            onChange={(e) => updateCustomTheme('pageTextSecondary', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Nagłówki i teksty na karcie</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.textPrimary}
+                            onChange={(e) => updateCustomTheme('textPrimary', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Podpis pod gwiazdkami i opisy (na karcie)</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.textSecondary}
+                            onChange={(e) => updateCustomTheme('textSecondary', e.target.value)}
                             className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
                           />
                         </div>

@@ -196,6 +196,13 @@ export interface CustomThemeConfig {
   font: 'fraunces' | 'cormorant' | 'cormorant-italic' | 'bebas';
   pageBg: string;
   cardBg: string;
+  // Text on the card itself (headings, form labels, hints under the stars).
+  textPrimary: string;
+  textSecondary: string;
+  // Text sitting directly on the page background, outside the card
+  // (business name, description, social links, footer).
+  pageTextPrimary: string;
+  pageTextSecondary: string;
   backgroundImageUrl: string | null;
   copy: ReviewTheme['copy'];
 }
@@ -212,6 +219,10 @@ export const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
   font: 'fraunces',
   pageBg: '#F7F1E8',
   cardBg: '#FFFFFF',
+  textPrimary: '#211D18',
+  textSecondary: '#8B7F6B',
+  pageTextPrimary: '#211D18',
+  pageTextSecondary: '#8B7F6B',
   backgroundImageUrl: null,
   copy: {
     ratingPrompt: 'Jak oceniasz dzisiejszą wizytę?',
@@ -237,9 +248,12 @@ function isLightColor(hex: string): boolean {
   return hexLuminance(hex) > 0.5;
 }
 
-export function buildCustomTheme(custom: CustomThemeConfig): ReviewTheme {
+export function buildCustomTheme(rawCustom: CustomThemeConfig): ReviewTheme {
+  // Older saved rows may predate the explicit text-color fields — fall back
+  // to sane defaults for anything missing instead of guessing from luminance,
+  // which was the source of unreadable text in some color combinations.
+  const custom = { ...DEFAULT_CUSTOM_THEME, ...rawCustom };
   const cardLight = isLightColor(custom.cardBg);
-  const pageLight = custom.backgroundImageUrl ? false : isLightColor(custom.pageBg);
   const accentLight = isLightColor(custom.accent);
   const fontDef = CUSTOM_FONT_OPTIONS.find((f) => f.id === custom.font) ?? CUSTOM_FONT_OPTIONS[0];
 
@@ -250,10 +264,10 @@ export function buildCustomTheme(custom: CustomThemeConfig): ReviewTheme {
     cardBg: custom.cardBg,
     cardBorder: cardLight ? '#00000014' : '#FFFFFF1F',
     cardRadius: '22px',
-    textPrimary: cardLight ? '#211D18' : '#F1ECDD',
-    textSecondary: cardLight ? '#8B7F6B' : '#9A9384',
-    pageTextPrimary: pageLight ? '#211D18' : '#F5F3EE',
-    pageTextSecondary: pageLight ? '#8B7F6B' : '#C9C7C2',
+    textPrimary: custom.textPrimary,
+    textSecondary: custom.textSecondary,
+    pageTextPrimary: custom.pageTextPrimary,
+    pageTextSecondary: custom.pageTextSecondary,
     accentDefault: custom.accent,
     starMutedFill: cardLight ? '#E7DEC9' : '#3A362E',
     starMutedStroke: cardLight ? '#D8CDB4' : '#4A453A',
