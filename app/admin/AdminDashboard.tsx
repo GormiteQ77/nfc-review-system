@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   ImagePlus,
   LayoutGrid,
@@ -82,7 +82,7 @@ interface PageView {
   created_at: string;
 }
 
-type Tab = 'overview' | 'clients' | 'settings';
+type Tab = 'overview' | 'clients' | 'reviews' | 'settings';
 
 interface Toast {
   id: number;
@@ -92,6 +92,7 @@ interface Toast {
 const NAV_ITEMS: { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'overview', label: 'Przegląd', icon: LayoutGrid },
   { id: 'clients', label: 'Klienci', icon: Users },
+  { id: 'reviews', label: 'Opinie klientów', icon: MessageSquare },
   { id: 'settings', label: 'Ustawienia', icon: SettingsIcon },
 ];
 
@@ -109,6 +110,17 @@ function getSubscriptionStatus(expiresAt: string | null) {
   if (days < 0) return { label: 'Wygasła', color: '#E28A6B', bg: 'rgba(226,138,107,0.15)' };
   if (days <= 7) return { label: `Wygasa za ${days} dni`, color: '#E2B25E', bg: 'rgba(226,178,94,0.15)' };
   return { label: 'Aktywna', color: '#5FBE8A', bg: 'rgba(95,190,138,0.14)' };
+}
+
+function getEngagementStatus(createdAt: string, viewsLast30d: number) {
+  const daysSinceCreated = (Date.now() - new Date(createdAt).getTime()) / 86400000;
+  if (daysSinceCreated < 7) {
+    return { label: 'Nowy klient', color: '#8FA6C9', bg: 'rgba(143,166,201,0.14)' };
+  }
+  if (viewsLast30d === 0) {
+    return { label: 'Niska aktywność', color: '#E2B25E', bg: 'rgba(226,178,94,0.15)' };
+  }
+  return { label: 'Aktywna karta', color: '#5FBE8A', bg: 'rgba(95,190,138,0.14)' };
 }
 
 function addInterval(base: string, unit: 'month' | 'year') {
@@ -152,6 +164,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const [pageViews, setPageViews] = useState<PageView[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [reviewClientId, setReviewClientId] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -211,6 +224,30 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     });
   }, [companies]);
 
+  const viewsLast30dByCompany = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const v of pageViews) {
+      const days = (Date.now() - new Date(v.created_at).getTime()) / 86400000;
+      if (days <= 30) map.set(v.company_id, (map.get(v.company_id) ?? 0) + 1);
+    }
+    return map;
+  }, [pageViews]);
+
+  const reviewableCompanies = useMemo(() => {
+    return companies
+      .filter(
+        (c) =>
+          c.is_active &&
+          (c.plan === 'full' || feedbacks.some((f) => f.company_id === c.id)) &&
+          (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.slug.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+      .sort((a, b) => {
+        const unresolvedA = feedbacks.filter((f) => f.company_id === a.id && !f.resolved).length;
+        const unresolvedB = feedbacks.filter((f) => f.company_id === b.id && !f.resolved).length;
+        return unresolvedB - unresolvedA || a.name.localeCompare(b.name);
+      });
+  }, [companies, feedbacks, searchTerm]);
+
   const stats = useMemo(() => {
     const now = new Date();
     const activeCount = companies.filter((c) => c.is_active).length;
@@ -237,7 +274,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         : 'Za mało danych';
 
     const ratingsThisMonth = ratings.filter((r) => isSameMonth(r.created_at, now)).length;
-    const needsContact = feedbacks.filter((f) => !f.resolved).length;
 
     return {
       activeCount,
@@ -245,9 +281,8 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       avgRating,
       ratingTrend,
       ratingsThisMonth,
-      needsContact,
     };
-  }, [companies, ratings, feedbacks]);
+  }, [companies, ratings]);
 
   const filteredCompanies = companies.filter(
     (c) =>
@@ -391,14 +426,17 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         </div>
       </div>
 
-      <div className="relative z-10 mx-4 mb-6 flex w-fit gap-1.5 rounded-full border border-[#2A2A31] p-1.5 md:mx-10">
+      <div className="relative z-10 mx-4 mb-6 flex max-w-full gap-1.5 overflow-x-auto rounded-full border border-[#2A2A31] p-1.5 md:mx-10 md:w-fit">
         {NAV_ITEMS.map((item) => {
           const active = tab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => setTab(item.id)}
-              className="relative overflow-hidden rounded-full px-5 py-2 text-[12.5px] font-bold"
+              onClick={() => {
+                setTab(item.id);
+                if (item.id !== 'reviews') setReviewClientId(null);
+              }}
+              className="relative shrink-0 overflow-hidden whitespace-nowrap rounded-full px-5 py-2 text-[12.5px] font-bold"
               style={{ color: active ? '#101012' : '#C9C7C2' }}
             >
               {active && (
@@ -479,11 +517,10 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               </button>
             )}
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-4">
               <StatCard icon={LayoutGrid} label="Aktywne wizytówki" value={String(stats.activeCount)} trend={`↑ ${stats.newCompaniesThisMonth} w tym miesiącu`} trendColor="#5FBE8A" />
               <StatCard icon={Star} label="Średnia ocena" value={stats.avgRating} trend={stats.ratingTrend} trendColor="#5FBE8A" />
               <StatCard icon={MessageSquare} label="Opinie w tym miesiącu" value={String(stats.ratingsThisMonth)} trend="Wszystkie oceny 1–5★" trendColor="#5FBE8A" />
-              <StatCard icon={AlertCircle} label="Wymaga kontaktu" value={String(stats.needsContact)} trend="Oceny 1–3★" trendColor="#E28A6B" />
             </div>
 
             <div className="grid flex-grow grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
@@ -529,6 +566,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             <div className="flex flex-col gap-3 md:hidden">
               {filteredCompanies.map((c) => {
                 const sub = getSubscriptionStatus(c.subscription_expires_at);
+                const engagement = getEngagementStatus(c.created_at, viewsLast30dByCompany.get(c.id) ?? 0);
                 return (
                   <button
                     key={c.id}
@@ -575,6 +613,12 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                       >
                         {sub.label}
                       </span>
+                      <span
+                        className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                        style={{ background: engagement.bg, color: engagement.color }}
+                      >
+                        {engagement.label}
+                      </span>
                     </div>
                   </button>
                 );
@@ -586,22 +630,24 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
             {/* Desktop: table */}
             <div className="hidden overflow-hidden rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] md:block">
-              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.9fr_0.9fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
+              <div className="grid grid-cols-[1.4fr_0.85fr_0.7fr_0.85fr_0.85fr_0.8fr_0.5fr] border-b border-[#2A2A31] px-[22px] py-3.5 text-[11px] uppercase tracking-wide text-[#6F6E76]">
                 <span>Firma</span>
                 <span>Link NFC</span>
                 <span>Status</span>
                 <span>Subskrypcja</span>
+                <span>Aktywność</span>
                 <span>Szablon strony</span>
                 <span>Akcja</span>
               </div>
               {filteredCompanies.map((c) => {
                 const themeInfo = TEMPLATE_OPTIONS.find((t) => t.id === c.template) ?? TEMPLATE_OPTIONS[0];
                 const sub = getSubscriptionStatus(c.subscription_expires_at);
+                const engagement = getEngagementStatus(c.created_at, viewsLast30dByCompany.get(c.id) ?? 0);
                 return (
                   <div
                     key={c.id}
                     onClick={() => openEditModal(c)}
-                    className="grid cursor-pointer grid-cols-[1.6fr_1fr_0.8fr_0.9fr_0.9fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5 hover:bg-[#202024]"
+                    className="grid cursor-pointer grid-cols-[1.4fr_0.85fr_0.7fr_0.85fr_0.85fr_0.8fr_0.5fr] items-center border-b border-[#232328] px-[22px] py-3.5 hover:bg-[#202024]"
                   >
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
@@ -627,6 +673,12 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                     >
                       {sub.label}
                     </span>
+                    <span
+                      className="inline-flex w-fit rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                      style={{ background: engagement.bg, color: engagement.color }}
+                    >
+                      {engagement.label}
+                    </span>
                     <span className="flex w-fit items-center gap-1.5 rounded-full border border-[#2A2A31] py-1 pl-1.5 pr-2.5">
                       <span className="h-2 w-2 rounded-full" style={{ background: c.accent_color ?? themeInfo.accentDefault }} />
                       <span className="text-[10.5px] text-[#C9C7C2]">{themeInfo.label}</span>
@@ -649,6 +701,106 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
               )}
             </div>
           </>
+        )}
+
+        {tab === 'reviews' && (
+          <div className="flex flex-col gap-4">
+            {reviewClientId === null ? (
+              <>
+                <p className="text-[12.5px] text-[#8A887F]">Wybierz klienta, żeby zobaczyć jego opinie i oceny.</p>
+                <div className="flex flex-col gap-2.5">
+                  {reviewableCompanies.map((c) => {
+                    const clientFeedbacks = feedbacks.filter((f) => f.company_id === c.id);
+                    const unresolved = clientFeedbacks.filter((f) => !f.resolved).length;
+                    const clientRatings = ratings.filter((r) => r.company_id === c.id);
+                    const avg = clientRatings.length
+                      ? (clientRatings.reduce((s, r) => s + r.rating, 0) / clientRatings.length).toFixed(2)
+                      : '—';
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setReviewClientId(c.id)}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-[#2A2A31] bg-[#1C1C21] p-4 text-left hover:bg-[#202024]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[#232328] text-xs font-semibold" style={{ color: ACCENT }}>
+                            {c.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-medium text-[#E9E7E1]">{c.name}</p>
+                            <p className="text-[11px] text-[#8A887F]">{clientFeedbacks.length} opinii · średnia {avg}★</p>
+                          </div>
+                        </div>
+                        {unresolved > 0 && (
+                          <span
+                            className="shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                            style={{ background: 'rgba(226,138,107,0.15)', color: '#E28A6B' }}
+                          >
+                            {unresolved} do obsłużenia
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {reviewableCompanies.length === 0 && (
+                    <p className="text-sm text-[#6F6E76]">Brak aktywnych klientów z formularzem opinii.</p>
+                  )}
+                </div>
+              </>
+            ) : (() => {
+              const client = companies.find((c) => c.id === reviewClientId);
+              if (!client) return null;
+              const clientFeedbacks = feedbacks.filter((f) => f.company_id === client.id);
+              return (
+                <div className="flex flex-col gap-4">
+                  <button
+                    onClick={() => setReviewClientId(null)}
+                    className="flex w-fit items-center gap-1.5 text-[12.5px] font-semibold text-[#C9C7C2]"
+                  >
+                    <ArrowLeft size={14} />
+                    Wróć do listy klientów
+                  </button>
+                  <div>
+                    <h2 className="text-[18px] font-bold text-[#F2F0EA]">{client.name}</h2>
+                    <p className="text-[12.5px] text-[#8A887F]">/r/{client.slug}</p>
+                  </div>
+                  <div className="flex flex-col gap-2.5">
+                    {clientFeedbacks.map((f) => (
+                      <div key={f.id} className="rounded-xl border border-[#2A2A31] bg-[#1C1C21] p-3.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12.5px] font-semibold text-[#E9E7E1]">{f.rating}★</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10.5px] text-[#6F6E76]">{new Date(f.created_at).toLocaleDateString('pl-PL')}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleResolved(f.id, f.resolved)}
+                              className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                              style={{
+                                borderColor: f.resolved ? 'rgba(95,190,138,0.4)' : '#2A2A31',
+                                color: f.resolved ? '#5FBE8A' : '#9B9AA1',
+                              }}
+                            >
+                              <CheckCircle2 size={10} />
+                              {f.resolved ? 'Obsłużono' : 'Oznacz'}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-[12px] leading-relaxed text-[#B7B5B0]">{f.message}</p>
+                        {f.customer_contact && (
+                          <p className="mt-1 text-[10.5px]" style={{ color: ACCENT }}>
+                            Kontakt: {f.customer_contact}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {clientFeedbacks.length === 0 && (
+                      <p className="text-[12.5px] text-[#6F6E76]">Brak zgłoszeń od tego klienta.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         )}
 
         {tab === 'settings' && (
