@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   UtensilsCrossed,
 } from 'lucide-react';
-import { resolveColor, THEMES, type TemplateId } from './themes';
+import { buildCustomTheme, resolveColor, THEMES, type CustomThemeConfig, type TemplateId } from './themes';
 import { useReviewFlow } from './useReviewFlow';
 
 interface Company {
@@ -26,6 +26,7 @@ interface Company {
   website_url?: string | null;
   template?: TemplateId | null;
   accent_color?: string | null;
+  custom_theme?: CustomThemeConfig | null;
   plan?: 'direct' | 'redirect_all' | 'full' | null;
 }
 
@@ -45,7 +46,35 @@ function Logo({ template, accent, initial }: { template: TemplateId; accent: str
   );
 }
 
-function Decoration({ template, accent }: { template: TemplateId; accent: string }) {
+function Decoration({
+  template,
+  accent,
+  backgroundImageUrl,
+}: {
+  template: TemplateId;
+  accent: string;
+  backgroundImageUrl?: string | null;
+}) {
+  if (template === 'custom') {
+    if (backgroundImageUrl) {
+      return (
+        <>
+          <div
+            className="pointer-events-none absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+          />
+          <div className="pointer-events-none absolute inset-0 bg-black/45" />
+        </>
+      );
+    }
+    return (
+      <div
+        className="pointer-events-none absolute left-1/2 top-[-140px] h-[560px] w-[560px] -translate-x-1/2 rounded-full"
+        style={{ background: `radial-gradient(circle, ${accent}29 0%, transparent 68%)` }}
+      />
+    );
+  }
+
   if (template === 'kwiaciarnia') {
     return (
       <svg width="100%" height="180" viewBox="0 0 390 180" className="pointer-events-none absolute left-0 top-0 opacity-50">
@@ -88,7 +117,10 @@ function Decoration({ template, accent }: { template: TemplateId; accent: string
 
 export default function ReviewCard({ company }: { company: Company }) {
   const templateId: TemplateId = company.template ?? 'universal';
-  const theme = THEMES[templateId] ?? THEMES.universal;
+  const theme =
+    templateId === 'custom' && company.custom_theme
+      ? buildCustomTheme(company.custom_theme)
+      : THEMES[templateId as Exclude<TemplateId, 'custom'>] ?? THEMES.universal;
   const accent = company.accent_color || theme.accentDefault;
   const flow = useReviewFlow(company, accent, company.plan === 'redirect_all');
 
@@ -109,7 +141,7 @@ export default function ReviewCard({ company }: { company: Company }) {
       className="relative flex min-h-screen justify-center overflow-hidden px-4 py-10"
       style={{ background: theme.pageBg }}
     >
-      <Decoration template={templateId} accent={accent} />
+      <Decoration template={templateId} accent={accent} backgroundImageUrl={company.custom_theme?.backgroundImageUrl} />
 
       <div className="relative z-10 flex w-full max-w-[420px] flex-col items-center">
         <div

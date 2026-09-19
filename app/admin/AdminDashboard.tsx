@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import {
   CheckCircle2,
+  ImagePlus,
   LayoutGrid,
   Link as LinkIcon,
   LogOut,
@@ -26,7 +27,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import StarfieldBackground from '@/components/StarfieldBackground';
-import { TEMPLATE_OPTIONS, type TemplateId } from '../r/[slug]/themes';
+import {
+  CUSTOM_FONT_OPTIONS,
+  DEFAULT_CUSTOM_THEME,
+  TEMPLATE_OPTIONS,
+  type CustomThemeConfig,
+  type TemplateId,
+} from '../r/[slug]/themes';
 
 const ACCENT = '#D4A15E';
 const DAY_LABELS = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
@@ -42,6 +49,7 @@ interface Company {
   is_active: boolean;
   template: TemplateId;
   accent_color: string | null;
+  custom_theme: CustomThemeConfig | null;
   plan: Plan;
   subscription_expires_at: string | null;
   created_at: string;
@@ -153,7 +161,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     accentColor: ACCENT,
     plan: 'full' as Plan,
     subscriptionExpiresAt: '',
+    customTheme: DEFAULT_CUSTOM_THEME,
   });
+  const [uploadingBackground, setUploadingBackground] = useState(false);
 
   const pushToast = (message: string) => {
     const id = Date.now();
@@ -245,6 +255,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       accentColor: ACCENT,
       plan: 'full',
       subscriptionExpiresAt: '',
+      customTheme: DEFAULT_CUSTOM_THEME,
     });
     setModalOpen(true);
   };
@@ -260,6 +271,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       accentColor: company.accent_color ?? ACCENT,
       plan: company.plan ?? 'full',
       subscriptionExpiresAt: company.subscription_expires_at ?? '',
+      customTheme: company.custom_theme ?? DEFAULT_CUSTOM_THEME,
     });
     setModalOpen(true);
   };
@@ -268,13 +280,15 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     e.preventDefault();
 
     const cleanSlug = form.slug.toLowerCase().trim().replace(/\s+/g, '-');
+    const isCustom = form.template === 'custom';
     const fields = {
       name: form.name,
       slug: cleanSlug,
       google_review_url: form.googleUrl,
       owner_email: form.ownerEmail,
       template: form.template,
-      accent_color: form.accentColor,
+      accent_color: isCustom ? form.customTheme.accent : form.accentColor,
+      custom_theme: isCustom ? form.customTheme : null,
       plan: form.plan,
       subscription_expires_at: form.subscriptionExpiresAt || null,
     };
@@ -289,6 +303,33 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
     setModalOpen(false);
     loadData();
+  };
+
+  const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setUploadingBackground(true);
+    const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+    const { data, error } = await supabase.storage.from('review-backgrounds').upload(path, file, { upsert: true });
+    setUploadingBackground(false);
+
+    if (error || !data) {
+      pushToast('Nie udało się wgrać zdjęcia');
+      return;
+    }
+
+    const { data: pub } = supabase.storage.from('review-backgrounds').getPublicUrl(data.path);
+    setForm((f) => ({ ...f, customTheme: { ...f.customTheme, backgroundImageUrl: pub.publicUrl } }));
+  };
+
+  const updateCustomTheme = <K extends keyof CustomThemeConfig>(key: K, value: CustomThemeConfig[K]) => {
+    setForm((f) => ({ ...f, customTheme: { ...f.customTheme, [key]: value } }));
+  };
+
+  const updateCustomCopy = (key: keyof CustomThemeConfig['copy'], value: string) => {
+    setForm((f) => ({ ...f, customTheme: { ...f.customTheme, copy: { ...f.customTheme.copy, [key]: value } } }));
   };
 
   const toggleStatus = async (id: string, current: boolean) => {
@@ -719,15 +760,139 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-[11px] border border-[#2A2A31] px-3.5 py-2.5">
-                      <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
-                      <input
-                        type="color"
-                        value={form.accentColor}
-                        onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-                        className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
-                      />
-                    </div>
+                    {form.template !== 'custom' && (
+                      <div className="flex items-center justify-between rounded-[11px] border border-[#2A2A31] px-3.5 py-2.5">
+                        <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
+                        <input
+                          type="color"
+                          value={form.accentColor}
+                          onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+                          className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                        />
+                      </div>
+                    )}
+
+                    {form.template === 'custom' && (
+                      <div className="flex flex-col gap-2.5 rounded-[11px] border border-[#2A2A31] p-3.5">
+                        <p className="text-[11px] font-semibold text-[#E9E7E1]">Własny projekt strony (tylko dla tego klienta)</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Kolor akcentu</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.accent}
+                            onChange={(e) => updateCustomTheme('accent', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Kolor tła strony</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.pageBg}
+                            onChange={(e) => updateCustomTheme('pageBg', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11.5px] text-[#9B9AA1]">Kolor karty</span>
+                          <input
+                            type="color"
+                            value={form.customTheme.cardBg}
+                            onChange={(e) => updateCustomTheme('cardBg', e.target.value)}
+                            className="h-6 w-10 cursor-pointer rounded border-none bg-transparent"
+                          />
+                        </div>
+
+                        <div>
+                          <span className="mb-1.5 block text-[11.5px] text-[#9B9AA1]">Czcionka nagłówka</span>
+                          <select
+                            value={form.customTheme.font}
+                            onChange={(e) => updateCustomTheme('font', e.target.value as CustomThemeConfig['font'])}
+                            className="w-full rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12.5px] text-[#E9E7E1] outline-none"
+                          >
+                            {CUSTOM_FONT_OPTIONS.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <span className="mb-1.5 block text-[11.5px] text-[#9B9AA1]">Zdjęcie w tle (opcjonalnie)</span>
+                          {form.customTheme.backgroundImageUrl ? (
+                            <div className="flex items-center gap-2.5">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={form.customTheme.backgroundImageUrl} alt="" className="h-12 w-12 rounded-lg border border-[#2A2A31] object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => updateCustomTheme('backgroundImageUrl', null)}
+                                className="text-[11px] text-[#E28A6B] underline"
+                              >
+                                Usuń zdjęcie
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed border-[#2A2A31] py-2.5 text-[11.5px] text-[#9B9AA1]">
+                              <ImagePlus size={14} />
+                              {uploadingBackground ? 'Wgrywanie...' : 'Wgraj zdjęcie'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleBackgroundUpload}
+                                disabled={uploadingBackground}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="mt-1 flex flex-col gap-2">
+                          <p className="text-[10.5px] text-[#9B9AA1]">Teksty na stronie</p>
+                          <input
+                            placeholder="Pytanie o ocenę"
+                            value={form.customTheme.copy.ratingPrompt}
+                            onChange={(e) => updateCustomCopy('ratingPrompt', e.target.value)}
+                            className="rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                          <input
+                            placeholder="Podpis pod gwiazdkami"
+                            value={form.customTheme.copy.ratingHint}
+                            onChange={(e) => updateCustomCopy('ratingHint', e.target.value)}
+                            className="rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                          <input
+                            placeholder="Tytuł przy ocenie 4-5★"
+                            value={form.customTheme.copy.positiveTitle}
+                            onChange={(e) => updateCustomCopy('positiveTitle', e.target.value)}
+                            className="rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                          <textarea
+                            rows={2}
+                            placeholder="Treść przy ocenie 4-5★"
+                            value={form.customTheme.copy.positiveBody}
+                            onChange={(e) => updateCustomCopy('positiveBody', e.target.value)}
+                            className="resize-none rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                          <input
+                            placeholder="Tytuł przy ocenie 1-3★"
+                            value={form.customTheme.copy.negativeTitle}
+                            onChange={(e) => updateCustomCopy('negativeTitle', e.target.value)}
+                            className="rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                          <textarea
+                            rows={2}
+                            placeholder="Treść przy ocenie 1-3★"
+                            value={form.customTheme.copy.negativeBody}
+                            onChange={(e) => updateCustomCopy('negativeBody', e.target.value)}
+                            className="resize-none rounded-[10px] border border-[#2A2A31] bg-[#101012] px-3 py-2 text-[12px] text-[#E9E7E1] outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
