@@ -790,7 +790,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                 );
               })()}
 
-              {editingCompany && editingCompany.plan === 'full' && (
+              {editingCompany &&
+                (editingCompany.plan === 'full' ||
+                  feedbacks.some((f) => f.company_id === editingCompany.id)) && (
                 <div className="mt-5 border-t border-[#2A2A31] pt-4">
                   <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#E9E7E1]">
                     <MessageSquare size={13} />

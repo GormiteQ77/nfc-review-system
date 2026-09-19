@@ -90,13 +90,18 @@ type Tab = 'overview' | 'feedback';
 
 export default function ClientPanel({ company, userEmail }: { company: Company; userEmail: string }) {
   const router = useRouter();
-  const hasFeedbackTab = company.plan === 'full';
   const [tab, setTab] = useState<Tab>('overview');
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [pageViews, setPageViews] = useState<PageView[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   const [reviewUrl, setReviewUrl] = useState('');
+
+  // Show the feedback tab whenever the client is currently on the 'full'
+  // plan, or when they have leftover feedback from before a downgrade —
+  // that history should stay reachable even if new feedback isn't being
+  // collected anymore.
+  const hasFeedbackTab = company.plan === 'full' || feedbacks.length > 0;
 
   useEffect(() => {
     setReviewUrl(`${window.location.origin}/r/${company.slug}`);
