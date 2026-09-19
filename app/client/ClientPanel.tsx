@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import {
   Bar,
   BarChart,
@@ -85,8 +86,12 @@ function getSubscriptionStatus(expiresAt: string | null) {
   return { label: 'Aktywna', color: '#5FBE8A', bg: 'rgba(95,190,138,0.14)' };
 }
 
+type Tab = 'overview' | 'feedback';
+
 export default function ClientPanel({ company, userEmail }: { company: Company; userEmail: string }) {
   const router = useRouter();
+  const hasFeedbackTab = company.plan === 'full';
+  const [tab, setTab] = useState<Tab>('overview');
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [pageViews, setPageViews] = useState<PageView[]>([]);
@@ -190,65 +195,124 @@ export default function ClientPanel({ company, userEmail }: { company: Company; 
           </span>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <StatCard label="Wizyty na stronie" value={String(stats.visits)} />
-          <StatCard label="Wystawione oceny" value={String(stats.total)} />
-          <StatCard label="Konwersja" value={stats.conversion} />
-          <StatCard label="Średnia ocena" value={stats.avgRating} />
-          <StatCard label="W tym miesiącu" value={String(stats.thisMonth)} />
-          <StatCard label="Do obsłużenia" value={String(stats.needsContact)} accentColor={stats.needsContact > 0 ? '#E28A6B' : undefined} />
-        </div>
-
-        <div className="mb-5 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 md:p-[22px_24px]">
-          <p className="text-[13px] font-semibold text-[#E9E7E1]">Średnia ocena — ostatnie 7 dni</p>
-          <div className="mt-2 h-[150px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <XAxis dataKey="label" tick={{ fill: '#6F6E76', fontSize: 10.5 }} axisLine={false} tickLine={false} />
-                <YAxis hide domain={[0, 5]} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                  contentStyle={{ background: '#1C1C21', border: '1px solid #2A2A31', borderRadius: 10, fontSize: 12 }}
-                  labelStyle={{ color: '#E9E7E1' }}
+        {hasFeedbackTab && (
+          <div className="mb-5 flex gap-1.5 rounded-[12px] border border-[#2A2A31] bg-[#1C1C21] p-1.5">
+            <button
+              onClick={() => setTab('overview')}
+              className="relative flex-1 rounded-[9px] py-2 text-[12.5px] font-medium"
+              style={{ color: tab === 'overview' ? ACCENT : '#9B9AA1' }}
+            >
+              {tab === 'overview' && (
+                <motion.span
+                  layoutId="client-nav-highlight"
+                  className="absolute inset-0 rounded-[9px]"
+                  style={{ background: 'rgba(212,161,94,0.12)' }}
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
                 />
-                <Bar dataKey="avg" fill={ACCENT} radius={[7, 7, 3, 3]} maxBarSize={26} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="mb-5 flex flex-col gap-4 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 sm:flex-row sm:items-center md:p-[22px_24px]">
-          <div className="flex-1">
-            <p className="text-[13px] font-semibold text-[#E9E7E1]">Twoja karta opinii</p>
-            <p className="mb-2.5 mt-1 break-all text-[12px] text-[#8FA6C9]">{reviewUrl || '...'}</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={copyLink}
-                className="flex items-center gap-1.5 rounded-[10px] border border-[#2A2A31] px-3 py-2 text-[11.5px] text-[#C9C7C2]"
-              >
-                <Copy size={12} />
-                {linkCopied ? 'Skopiowano!' : 'Kopiuj link'}
-              </button>
-              {reviewUrl && (
-                <a
-                  href={reviewUrl}
-                  target="_blank"
-                  className="flex items-center gap-1.5 rounded-[10px] border border-[#2A2A31] px-3 py-2 text-[11.5px] text-[#C9C7C2]"
+              )}
+              <span className="relative">Przegląd</span>
+            </button>
+            <button
+              onClick={() => setTab('feedback')}
+              className="relative flex flex-1 items-center justify-center gap-1.5 rounded-[9px] py-2 text-[12.5px] font-medium"
+              style={{ color: tab === 'feedback' ? ACCENT : '#9B9AA1' }}
+            >
+              {tab === 'feedback' && (
+                <motion.span
+                  layoutId="client-nav-highlight"
+                  className="absolute inset-0 rounded-[9px]"
+                  style={{ background: 'rgba(212,161,94,0.12)' }}
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                />
+              )}
+              <span className="relative">Opinie</span>
+              {stats.needsContact > 0 && (
+                <span
+                  className="relative flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9.5px] font-semibold"
+                  style={{ background: '#E28A6B', color: '#1A1305' }}
                 >
-                  <ExternalLink size={12} />
-                  Otwórz
-                </a>
+                  {stats.needsContact}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {tab === 'overview' && (
+          <>
+            <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+              <StatCard label="Wizyty na stronie" value={String(stats.visits)} />
+              <StatCard label="Wystawione oceny" value={String(stats.total)} />
+              <StatCard label="Konwersja" value={stats.conversion} />
+              <StatCard label="Średnia ocena" value={stats.avgRating} />
+              <StatCard label="W tym miesiącu" value={String(stats.thisMonth)} />
+              {hasFeedbackTab ? (
+                <button onClick={() => setTab('feedback')} className="text-left">
+                  <StatCard
+                    label="Do obsłużenia"
+                    value={String(stats.needsContact)}
+                    accentColor={stats.needsContact > 0 ? '#E28A6B' : undefined}
+                  />
+                </button>
+              ) : (
+                <StatCard label="Do obsłużenia" value={String(stats.needsContact)} accentColor={stats.needsContact > 0 ? '#E28A6B' : undefined} />
               )}
             </div>
-          </div>
-          {reviewUrl && (
-            <div className="flex shrink-0 items-center justify-center rounded-xl bg-white p-2.5">
-              <QRCode value={reviewUrl} size={104} fgColor="#101012" bgColor="#FFFFFF" />
-            </div>
-          )}
-        </div>
 
-        {company.plan === 'full' && (
+            <div className="mb-5 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 md:p-[22px_24px]">
+              <p className="text-[13px] font-semibold text-[#E9E7E1]">Średnia ocena — ostatnie 7 dni</p>
+              <div className="mt-2 h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <XAxis dataKey="label" tick={{ fill: '#6F6E76', fontSize: 10.5 }} axisLine={false} tickLine={false} />
+                    <YAxis hide domain={[0, 5]} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{ background: '#1C1C21', border: '1px solid #2A2A31', borderRadius: 10, fontSize: 12 }}
+                      labelStyle={{ color: '#E9E7E1' }}
+                    />
+                    <Bar dataKey="avg" fill={ACCENT} radius={[7, 7, 3, 3]} maxBarSize={26} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="mb-5 flex flex-col gap-4 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 sm:flex-row sm:items-center md:p-[22px_24px]">
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-[#E9E7E1]">Twoja karta opinii</p>
+                <p className="mb-2.5 mt-1 break-all text-[12px] text-[#8FA6C9]">{reviewUrl || '...'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={copyLink}
+                    className="flex items-center gap-1.5 rounded-[10px] border border-[#2A2A31] px-3 py-2 text-[11.5px] text-[#C9C7C2]"
+                  >
+                    <Copy size={12} />
+                    {linkCopied ? 'Skopiowano!' : 'Kopiuj link'}
+                  </button>
+                  {reviewUrl && (
+                    <a
+                      href={reviewUrl}
+                      target="_blank"
+                      className="flex items-center gap-1.5 rounded-[10px] border border-[#2A2A31] px-3 py-2 text-[11.5px] text-[#C9C7C2]"
+                    >
+                      <ExternalLink size={12} />
+                      Otwórz
+                    </a>
+                  )}
+                </div>
+              </div>
+              {reviewUrl && (
+                <div className="flex shrink-0 items-center justify-center rounded-xl bg-white p-2.5">
+                  <QRCode value={reviewUrl} size={104} fgColor="#101012" bgColor="#FFFFFF" />
+                </div>
+              )}
+            </div>
+
+            <p className="mt-1 text-center text-[10.5px] text-[#6F6E76]">Szablon strony: {templateInfo.label}</p>
+          </>
+        )}
+
+        {tab === 'feedback' && hasFeedbackTab && (
           <div className="flex flex-col gap-3 rounded-[18px] border border-[#2A2A31] bg-[#1C1C21] p-4 md:p-[22px_24px]">
             <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#E9E7E1]">
               <MessageSquare size={14} />
@@ -284,8 +348,6 @@ export default function ClientPanel({ company, userEmail }: { company: Company; 
             {feedbacks.length === 0 && <p className="text-[11.5px] text-[#6F6E76]">Brak zgłoszeń — wszystko gra!</p>}
           </div>
         )}
-
-        <p className="mt-6 text-center text-[10.5px] text-[#6F6E76]">Szablon strony: {templateInfo.label}</p>
       </div>
     </div>
   );
