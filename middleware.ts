@@ -29,21 +29,29 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getSession();
 
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isLoginRoute = request.nextUrl.pathname.startsWith('/login');
+  const isLoginRoute = request.nextUrl.pathname === '/login';
+  const isClientRoute = request.nextUrl.pathname.startsWith('/client') && request.nextUrl.pathname !== '/client/login';
+  const isClientLoginRoute = request.nextUrl.pathname === '/client/login';
 
   if (isAdminRoute && !session) {
-    const redirectUrl = new URL('/login', request.url);
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (isLoginRoute && session) {
-    const redirectUrl = new URL('/admin', request.url);
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(new URL('/admin', request.url));
+  }
+
+  if (isClientRoute && !session) {
+    return NextResponse.redirect(new URL('/client/login', request.url));
+  }
+
+  if (isClientLoginRoute && session) {
+    return NextResponse.redirect(new URL('/client', request.url));
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login'],
+  matcher: ['/admin/:path*', '/login', '/client/:path*'],
 };

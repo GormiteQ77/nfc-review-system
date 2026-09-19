@@ -65,6 +65,12 @@ interface Rating {
   created_at: string;
 }
 
+interface PageView {
+  id: string;
+  company_id: string;
+  created_at: string;
+}
+
 type Tab = 'overview' | 'clients' | 'settings';
 
 interface Toast {
@@ -132,6 +138,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [pageViews, setPageViews] = useState<PageView[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -172,6 +179,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       .select('*')
       .order('created_at', { ascending: false });
     if (rat) setRatings(rat as Rating[]);
+
+    const { data: views } = await supabase.from('page_views').select('*');
+    if (views) setPageViews(views as PageView[]);
   };
 
   useEffect(() => {
@@ -767,6 +777,19 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                 </button>
               </form>
 
+              {editingCompany && (() => {
+                const clientViews = pageViews.filter((v) => v.company_id === editingCompany.id).length;
+                const clientRatings = ratings.filter((r) => r.company_id === editingCompany.id).length;
+                const conversion = clientViews > 0 ? `${Math.round((clientRatings / clientViews) * 100)}%` : '—';
+                return (
+                  <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[#2A2A31] pt-4">
+                    <MiniStat label="Wizyty" value={String(clientViews)} />
+                    <MiniStat label="Oceny" value={String(clientRatings)} />
+                    <MiniStat label="Konwersja" value={conversion} />
+                  </div>
+                );
+              })()}
+
               {editingCompany && editingCompany.plan === 'full' && (
                 <div className="mt-5 border-t border-[#2A2A31] pt-4">
                   <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#E9E7E1]">
@@ -857,6 +880,17 @@ function ShieldGlyph() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101012" strokeWidth="2.4" strokeLinecap="round">
       <path d="M12 2l7 4v6c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6z" />
     </svg>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#2A2A31] p-2.5 text-center">
+      <p className="text-[15px] font-semibold text-[#F5F3EE]" style={{ fontFamily: 'var(--font-fraunces)' }}>
+        {value}
+      </p>
+      <p className="mt-0.5 text-[10px] text-[#8B8A90]">{label}</p>
+    </div>
   );
 }
 
